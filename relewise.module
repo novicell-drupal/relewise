@@ -19,7 +19,8 @@ function relewise_locale_translation_projects_alter(&$projects) {
  */
 function relewise_entity_view_alter(array &$build, EntityInterface $entity, EntityViewDisplayInterface $display) {
   // TODO: Add tracking to other entity types.
-  if ($entity->getEntityTypeId() == 'node') {
+  $relewise = \Drupal::service('relewise');
+  if ($relewise->isSelectedForIndexing($entity) && $entity->getEntityTypeId() == 'node') {
     if ($entity->isNew() || isset($entity->in_preview)) {
       return;
     }
@@ -29,7 +30,7 @@ function relewise_entity_view_alter(array &$build, EntityInterface $entity, Enti
       // This still allows for Drupal behaviors (which are triggered on the
       // "DOMContentReady" event) to add "new" and "updated" indicators.
       $build['#attached']['library'][] = 'relewise/mark-as-read';
-      $build['#attached']['drupalSettings']['relewise']['entitiesToMarkAsRead'][$relewise->getContentId($entity)] = TRUE;
+      $build['#attached']['drupalSettings']['relewise']['nodesToMarkAsRead'][$entity->id()] = TRUE;
     }
   }
 }
