@@ -1,0 +1,7 @@
+services:
+  relewise:
+    class: Drupal\relewise\Relewise
+    arguments: ['@relewise.api',  '@entity_type.manager', '@entity_type.bundle.info', '@module_handler']
+  relewise.api:
+    class: Drupal\relewise\RelewiseAPI
+    arguments: ['@http_client']

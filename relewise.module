@@ -1,0 +1,87 @@
+<?php
+
+use Drupal\Core\Entity\Display\EntityViewDisplayInterface;
+use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Site\Settings;
+use Drupal\user\UserInterface;
+
+/**
+ * Implements hook_locale_translation_projects_alter().
+ */
+function relewise_locale_translation_projects_alter(&$projects) {
+  $module_handler = \Drupal::service('module_handler');
+  $path = $module_handler->getModule('relewise')->getPath();
+  $projects['relewise']['info']['interface translation server pattern'] = $path . '/translations/%language.po';
+}
+
+/**
+ * Implements hook_entity_view_alter() for viewed entities.
+ */
+function relewise_entity_view_alter(array &$build, EntityInterface $entity, EntityViewDisplayInterface $display) {
+  // TODO: Add tracking to other entity types.
+  if ($entity->getEntityTypeId() == 'node') {
+    if ($entity->isNew() || isset($entity->in_preview)) {
+      return;
+    }
+    // Update the history table, stating that this user viewed this node.
+    if ($display->getOriginalMode() === 'full') {
+      // When the window's "load" event is triggered, mark the node as read.
+      // This still allows for Drupal behaviors (which are triggered on the
+      // "DOMContentReady" event) to add "new" and "updated" indicators.
+      $build['#attached']['library'][] = 'relewise/mark-as-read';
+      $build['#attached']['drupalSettings']['relewise']['entitiesToMarkAsRead'][$relewise->getContentId($entity)] = TRUE;
+    }
+  }
+}
+
+/**
+ * Implements hook_entity_insert() for new entities.
+ */
+function relewise_entity_insert(EntityInterface $entity) {
+  /** @var \Drupal\relewise\Relewise $relewise */
+  $relewise = \Drupal::service('relewise');
+  if ($relewise->isSelectedForIndexing($entity)) {
+    $queue = \Drupal::queue('relewise_content_update');
+    $queue->createItem([
+      'entity_type' => $entity->getEntityTypeId(),
+      'entity_ids' => [$entity->id()],
+    ]);
+  }
+}
+
+/**
+ * Implements hook_entity_update() for updated entities.
+ */
+function relewise_entity_update(EntityInterface $entity) {
+  /** @var \Drupal\relewise\Relewise $relewise */
+  $relewise = \Drupal::service('relewise');
+  if ($relewise->isSelectedForIndexing($entity)) {
+    $queue = \Drupal::queue('relewise_content_update');
+    $queue->createItem([
+      'entity_type' => $entity->getEntityTypeId(),
+      'entity_ids' => [$entity->id()],
+    ]);
+  }
+}
+
+/**
+ * Implements hook_entity_delete() for deleted entities.
+ */
+function relewise_entity_delete(EntityInterface $entity) {
+    /** @var \Drupal\relewise\Relewise $relewise */
+    $relewise = \Drupal::service('relewise');
+    if ($relewise->isSelectedForIndexing($entity)) {
+      $relewise->deleteContentIndex($entity);
+    }
+}
+
+/**
+ * Implements hook_user_login() for user logins.
+ */
+function relewise_user_login(UserInterface $account) {
+  if (!empty(Settings::get('relewise.dataset', '')) && !empty(Settings::get('relewise.apikey', ''))) {
+    /** @var \Drupal\relewise\Relewise $relewise */
+    $relewise = \Drupal::service('relewise');
+    $relewise->userUpdate($account);
+  }
+}

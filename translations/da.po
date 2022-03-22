@@ -1,0 +1,37 @@
+# Danish translation of Relewise (all releases)
+# Copyright (c) 2022 Novicell
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Relewise (all releases)\n"
+"POT-Creation-Date: 2022-01-25 11:59+0000\n"
+"PO-Revision-Date: 2022-01-25 13:08+0100\n"
+"Language-Team: Danish\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n!=1);\n"
+"Last-Translator: \n"
+"Language: da\n"
+"X-Generator: Poedit 1.8.11\n"
+
+msgid "Relewise"
+msgstr "Relewise"
+
+msgid "Implements Relewise search functionality"
+msgstr "Implementerer Relewise søgefunktionalitet"
+
+msgid "Configure Relewise"
+msgstr "Konfigurér Relewise"
+
+msgid "Access Relewise settings page"
+msgstr "Giv adgang til Relewise indstillinger"
+
+msgid "Relewise settings"
+msgstr "Relewise indstillinger"
+
+msgid "Index batch size"
+msgstr "Indekserings batch størrelse"
+
+msgid "How many content items to index per batch when resetting index."
+msgstr "Hvor meget indhold skal indekseres ad gangen ved reset af indekset."

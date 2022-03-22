@@ -1,0 +1,15 @@
+relewise.read_node:
+  path: '/relewise/{node}/read'
+  defaults:
+    _controller: '\Drupal\relewise\Controller\RelewiseController::readNode'
+  requirements:
+    _entity_access: 'node.view'
+    node: \d+
+
+relewise.settings:
+  path: '/admin/config/search/relewise'
+  defaults:
+    _form: '\Drupal\relewise\Form\RelewiseSettingsForm'
+    _title: 'Relewise'
+  requirements:
+    _permission: 'configure relewise'

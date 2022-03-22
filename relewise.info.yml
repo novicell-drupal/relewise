@@ -1,0 +1,11 @@
+name: Relewise
+description: Implements Relewise search functionality
+type: module
+core_version_requirement: ^8 || ^9
+version: '1.0'
+
+dependencies:
+  - core:node
+
+interface translation project: relewise
+interface translation server pattern: modules/relewise/translations/%language.po
