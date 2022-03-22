@@ -1,0 +1,8 @@
+{
+  "name": "novicell/relewise",
+  "type": "drupal-module",
+  "description": "Relewise",
+  "license": "GPL-2.0+",
+  "homepage": "https://www.novicell.dk",
+  "minimum-stability": "dev"
+}
