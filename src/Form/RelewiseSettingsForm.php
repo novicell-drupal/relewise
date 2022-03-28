@@ -170,9 +170,12 @@ class RelewiseSettingsForm extends ConfigFormBase {
     $config->save();
 
     if ($this->relewise->resetIndex()) {
-      foreach ($bundles as $entity_type => $bundle) {
+      foreach ($bundles as $entity_type => $bundle_ids) {
+        if (empty($bundle_ids)) {
+          continue;
+        }
         $ids = $this->entityTypeManager->getStorage($entity_type)->getQuery()
-          ->condition($this->entityTypeManager->getDefinition($entity_type)->getKey('bundle'), $bundle)
+          ->condition($this->entityTypeManager->getDefinition($entity_type)->getKey('bundle'), $bundle_ids, 'IN')
           ->condition('status', 1)
           ->execute();
         $chunks = array_chunk($ids, $form_state->getValue('index_batch_size'));

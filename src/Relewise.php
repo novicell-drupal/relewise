@@ -3,6 +3,7 @@ namespace Drupal\relewise;
 
 use Drupal\Component\Plugin\Exception\InvalidPluginDefinitionException;
 use Drupal\Component\Plugin\Exception\PluginNotFoundException;
+use Drupal\Core\Controller\TitleResolverInterface;
 use Drupal\Core\Entity\EntityChangedInterface;
 use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Entity\EntityPublishedInterface;
@@ -10,6 +11,7 @@ use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
 use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
+use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\Core\Site\Settings;
 use Drupal\node\NodeInterface;
 use Drupal\relewise\Conditions\EqualsCondition;
@@ -22,8 +24,17 @@ use Drupal\relewise\Filters\ContentDataFilter;
 use Drupal\relewise\Filters\ContentIdFilter;
 use Drupal\relewise\Tracking\ContentView;
 use Drupal\user\UserInterface;
+use Symfony\Component\HttpFoundation\RequestStack;
 
 class Relewise {
+
+
+  /**
+   * The Relewise API service.
+   *
+   * @var \Drupal\relewise\RelewiseAPI
+   */
+  protected $API;
 
   /**
    * The entity type manager service.
@@ -46,14 +57,35 @@ class Relewise {
    */
   protected $moduleHandler;
 
-  /** @var \Drupal\relewise\RelewiseAPI */
-  protected $API;
+  /**
+   * The title resolver.
+   *
+   * @var \Drupal\Core\Controller\TitleResolverInterface
+   */
+  protected $titleResolver;
 
-  public function __construct(RelewiseAPI $API, EntityTypeManagerInterface $entityTypeManager, EntityTypeBundleInfoInterface $entityTypeBundleInfo, ModuleHandlerInterface $moduleHandler) {
+  /**
+   * Route match.
+   *
+   * @var \Drupal\Core\Routing\RouteMatchInterface
+   */
+  protected $routeMatch;
+
+  /**
+   * The current request.
+   *
+   * @var \Drupal\Core\Controller\TitleResolverInterface
+   */
+  protected $requestStack;
+
+  public function __construct(RelewiseAPI $API, EntityTypeManagerInterface $entityTypeManager, EntityTypeBundleInfoInterface $entityTypeBundleInfo, ModuleHandlerInterface $moduleHandler, TitleResolverInterface $titleResolver, RouteMatchInterface $routeMatch, RequestStack $requestStack) {
     $this->API = $API;
     $this->entityTypeManager = $entityTypeManager;
     $this->entityTypeBundleInfo = $entityTypeBundleInfo;
     $this->moduleHandler = $moduleHandler;
+    $this->titleResolver = $titleResolver;
+    $this->routeMatch = $routeMatch;
+    $this->requestStack = $requestStack;
   }
 
   /**
@@ -176,7 +208,7 @@ class Relewise {
    * @param string $term
    * @param array $fields
    * @param \Drupal\relewise\DataTypes\Search\Sorting\Content\ContentSorting|null $sorting
-   * @param int $count
+   * @param int|null $count
    * @param int $page
    *
    * @return array|bool
@@ -190,7 +222,12 @@ class Relewise {
         $facets[] = new ContentDataStringValueFacet($key, 'Data', [$value]);
       }
     }
-    return $this->API->ContentSearchRequest($term, $facets, $sorting, $count, $page * $count, \Drupal::languageManager()->getCurrentLanguage()->getId(), 'DKK', $this->getCurrentUserArray(), 'Search Page');
+    $skip = NULL;
+    if (!is_null($count)) {
+      $skip = $page * $count;
+    }
+    $title = $this->titleResolver->getTitle($this->requestStack->getCurrentRequest(), $this->routeMatch->getRouteObject());
+    return $this->API->ContentSearchRequest($term, $facets, $sorting, $count, $skip, \Drupal::languageManager()->getCurrentLanguage()->getId(), 'DKK', $this->getCurrentUserArray(), $title);
   }
 
   /**
@@ -259,7 +296,7 @@ class Relewise {
   }
 
   protected function getCurrentUserArray() {
-    $tempId = \Drupal::request()->cookies->get('Drupal_visitor_relewise');
+    $tempId = $this->requestStack->getCurrentRequest()->cookies->get('Drupal_visitor_relewise');
     $user = \Drupal::currentUser();
     if ($user->isAuthenticated()) {
       return [
@@ -269,7 +306,7 @@ class Relewise {
       ];
     } else {
       if (empty($tempId)) {
-        if (\Drupal::request()->cookies->get('cookiebot-consent--statistics') === '0') {
+        if ($this->requestStack->getCurrentRequest()->cookies->get('cookiebot-consent--statistics') === '0') {
           $tempId = NULL;
           user_cookie_delete('relewise');
         } else {

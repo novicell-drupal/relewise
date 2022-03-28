@@ -71,8 +71,8 @@ class RelewiseAPI {
   /**
    * @param string $term
    * @param \Drupal\relewise\DataTypes\DataType[] $facets
-   * @param int $take
-   * @param int $skip
+   * @param int|null $take
+   * @param int|null $skip
    * @param string $language
    * @param string $currency
    * @param array $user
@@ -91,8 +91,6 @@ class RelewiseAPI {
           "ViewedByUserInfo" => FALSE
         ]
       ],
-      'Take' => $take,
-      'Skip' => $skip,
       'Language' => ['Value' => $language],
       'Currency' => ['Value' => $currency],
       'User' => $user,
@@ -100,6 +98,12 @@ class RelewiseAPI {
     ];
     if (!empty($term)) {
       $arr['Term'] = $term;
+    }
+    if (!is_null($take)) {
+      $arr['Take'] = $take;
+    }
+    if (!is_null($skip)) {
+      $arr['Skip'] = $skip;
     }
     if (!empty($facets)) {
       $arr['Facets'] = $this->getItemsArray($facets);
