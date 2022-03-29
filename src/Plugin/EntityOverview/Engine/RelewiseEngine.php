@@ -190,7 +190,7 @@ class RelewiseEngine extends EngineBase {
     $payload = $filter;
     $payload['entity_bundle'] = $entity_bundle;
     $hash = md5(serialize($payload));
-    return $this->count[$hash];
+    return $this->count[$hash] ?? NULL;
   }
 
 }
