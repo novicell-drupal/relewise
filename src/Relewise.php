@@ -89,6 +89,8 @@ class Relewise {
   }
 
   /**
+   * Tells whether an entity is selected indexing in the config.
+   *
    * @param \Drupal\Core\Entity\EntityInterface $entity
    *
    * @return bool
@@ -107,21 +109,33 @@ class Relewise {
     }
   }
 
+  /**
+   * Register updates to the user like logins.
+   *
+   * @param \Drupal\user\UserInterface $user
+   *
+   * @return bool
+   */
   public function userUpdate(UserInterface $user) {
-    $this->API->TrackUserUpdateRequest(new UserUpdate('UpdateAndAppend', $this->getCurrentUserArray()));
+    return $this->API->TrackUserUpdateRequest(new UserUpdate('UpdateAndAppend', $this->getCurrentUserArray()));
   }
 
+  /**
+   * Register content view on an entity.
+   *
+   * @param \Drupal\Core\Entity\EntityInterface $entity
+   *
+   * @return bool
+   */
   public function registerContentView(EntityInterface $entity) {
-    $this->API->TrackContentViewRequest(
+    return $this->API->TrackContentViewRequest(
       new ContentView($this->getCurrentUserArray(), $this->getContentId($entity))
     );
   }
 
-  public function insertContentIndex(EntityInterface $entity) {
-    $this->updateContentIndex($entity);
-  }
-
   /**
+   * Updates the index on a single entity.
+   *
    * @param \Drupal\Core\Entity\EntityInterface $entity
    */
   public function updateContentIndex(EntityInterface $entity) {
@@ -145,6 +159,8 @@ class Relewise {
   }
 
   /**
+   * Updates the index on multiple entities at once.
+   *
    * @param \Drupal\Core\Entity\EntityInterface[] $entities
    */
   public function updateContentIndexMultiple(array $entities) {
@@ -177,14 +193,23 @@ class Relewise {
     }
   }
 
+  /**
+   * Deletes an entity from the index.
+   *
+   * @param \Drupal\Core\Entity\EntityInterface $entity
+   *
+   * @return bool
+   */
   public function deleteContentIndex(EntityInterface $entity) {
     $filters = [
       new ContentIdFilter([$this->getContentId($entity)])
     ];
-    $this->API->TrackContentAdministrativeActionRequest(new ContentAdministrativeAction('PermanentlyDelete', $filters));
+    return $this->API->TrackContentAdministrativeActionRequest(new ContentAdministrativeAction('PermanentlyDelete', $filters));
   }
 
   /**
+   * Deletes all content from index and queues reindexing. Warning: may lose tracking data.
+   *
    * @return bool
    */
   public function resetIndex() {
@@ -205,6 +230,8 @@ class Relewise {
   }
 
   /**
+   * Performs a search for content in the index.
+   *
    * @param string $term
    * @param array $fields
    * @param \Drupal\relewise\DataTypes\Search\Sorting\Content\ContentSorting|null $sorting
@@ -231,6 +258,8 @@ class Relewise {
   }
 
   /**
+   * Transforms a search result into entities.
+   *
    * @param mixed $result
    *
    * @return EntityInterface[]
@@ -258,6 +287,8 @@ class Relewise {
   }
 
   /**
+   * Returns a content ID used for content indexing.
+   *
    * @param \Drupal\Core\Entity\EntityInterface $entity
    *
    * @return string
@@ -321,6 +352,8 @@ class Relewise {
   }
 
   /**
+   * Returns list of all entity types that is supported for content indexing.
+   *
    * @return array
    */
   public function getSupportedEntityTypes() {
@@ -351,6 +384,8 @@ class Relewise {
   }
 
   /**
+   * Returns whether or not an entity type can be indexed.
+   *
    * @param \Drupal\Core\Entity\EntityTypeInterface $entity_type
    *
    * @return bool
