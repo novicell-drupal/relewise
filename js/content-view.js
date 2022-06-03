@@ -7,8 +7,8 @@
 
 (function (window, Drupal, drupalSettings) {
   window.addEventListener('load', function () {
-    if (drupalSettings.relewise && drupalSettings.relewise.nodesToMarkAsRead) {
-      Object.keys(drupalSettings.relewise.nodesToMarkAsRead).forEach(Drupal.relewise.markAsRead);
+    if (drupalSettings.relewise && drupalSettings.relewise.contentViewed) {
+      Object.keys(drupalSettings.relewise.contentViewed).forEach(Drupal.relewise.trackContentView);
     }
   });
 })(window, Drupal, drupalSettings);

@@ -77,20 +77,13 @@ class RelewiseAPI {
    * @param string $currency
    * @param array $user
    * @param string $displayedAtLocation
+   * @param array $settings
    *
    * @return array
    */
-  public function ContentSearchRequest($term, array $facets, ?ContentSorting $sorting, $take, $skip, $language, $currency, array $user, $displayedAtLocation) {
+  public function ContentSearchRequest($term, array $facets, ?ContentSorting $sorting, $take, $skip, $language, $currency, array $user, $displayedAtLocation, array $settings) {
     $arr = [
-      "Settings" => [
-        "SelectedContentProperties" => [
-          "DisplayName" => TRUE,
-          "CategoryPaths" => FALSE,
-          "Assortments" => FALSE,
-          "AllData" => FALSE,
-          "ViewedByUserInfo" => FALSE
-        ]
-      ],
+      "Settings" => $settings,
       'Language' => ['Value' => $language],
       'Currency' => ['Value' => $currency],
       'User' => $user,
@@ -114,6 +107,32 @@ class RelewiseAPI {
       ];
     }
     return $this->CallAPI('ContentSearchRequest', $arr);
+  }
+
+  /**
+   * @param string|null $term
+   * @param int|null $take
+   * @param string $language
+   * @param string $currency
+   * @param array $user
+   * @param string $displayedAtLocation
+   *
+   * @return array
+   */
+  public function SearchTermPredictionRequest($term, $take, $language, $currency, array $user, $displayedAtLocation) {
+    $arr = [
+      'Language' => ['Value' => $language],
+      'Currency' => ['Value' => $currency],
+      'User' => $user,
+      'DisplayedAtLocation' => $displayedAtLocation
+    ];
+    if (!empty($term)) {
+      $arr['Term'] = $term;
+    }
+    if (!is_null($take)) {
+      $arr['Take'] = $take;
+    }
+    return $this->CallAPI('SearchTermPredictionRequest', $arr);
   }
 
   /**

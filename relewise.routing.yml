@@ -1,10 +1,23 @@
-relewise.read_node:
-  path: '/relewise/{node}/read'
+relewise.trackContentView:
+  path: '/relewise/content_view/{entity_type_id}/{entity_id}'
   defaults:
-    _controller: '\Drupal\relewise\Controller\RelewiseController::readNode'
+    _controller: '\Drupal\relewise\Controller\RelewiseController::trackContentView'
   requirements:
-    _entity_access: 'node.view'
-    node: \d+
+    _permission: 'access content'
+
+relewise.searchContent:
+  path: '/relewise/search_content/{term}'
+  defaults:
+    _controller: '\Drupal\relewise\Controller\RelewiseController::searchContent'
+  requirements:
+    _access: 'TRUE'
+
+relewise.searchTermPrediction:
+  path: '/relewise/term_prediction/{term}'
+  defaults:
+    _controller: '\Drupal\relewise\Controller\RelewiseController::searchTermPrediction'
+  requirements:
+    _access: 'TRUE'
 
 relewise.settings:
   path: '/admin/config/search/relewise'

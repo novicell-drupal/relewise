@@ -6,69 +6,16 @@
 **/
 
 (function ($, Drupal, drupalSettings, storage) {
-  var currentUserID = parseInt(drupalSettings.user.uid, 10);
-  var secondsIn30Days = 2592000;
-  var thirtyDaysAgo = Math.round(new Date().getTime() / 1000) - secondsIn30Days;
-  var embeddedLastReadTimestamps = false;
-
-  if (drupalSettings.relewise && drupalSettings.relewise.lastReadTimestamps) {
-    embeddedLastReadTimestamps = drupalSettings.relewise.lastReadTimestamps;
-  }
-
   Drupal.relewise = {
-    fetchTimestamps: function fetchTimestamps(nodeIDs, callback) {
-      if (embeddedLastReadTimestamps) {
-        callback();
-        return;
-      }
-
+    trackContentView: function trackContentView(contentID) {
+      const content = contentID.split(':');
       $.ajax({
-        url: Drupal.url('relewise/get_node_read_timestamps'),
-        type: 'POST',
-        data: {
-          'node_ids[]': nodeIDs
-        },
-        dataType: 'json',
-        success: function success(results) {
-          Object.keys(results || {}).forEach(function (nodeID) {
-            storage.setItem("Drupal.relewise.".concat(currentUserID, ".").concat(nodeID), results[nodeID]);
-          });
-          callback();
-        }
-      });
-    },
-    getLastRead: function getLastRead(nodeID) {
-      if (embeddedLastReadTimestamps && embeddedLastReadTimestamps[nodeID]) {
-        return parseInt(embeddedLastReadTimestamps[nodeID], 10);
-      }
-
-      return parseInt(storage.getItem("Drupal.relewise.".concat(currentUserID, ".").concat(nodeID)) || 0, 10);
-    },
-    markAsRead: function markAsRead(nodeID) {
-      $.ajax({
-        url: Drupal.url("relewise/".concat(nodeID, "/read")),
+        url: Drupal.url('relewise/'.concat(content[0], '/', content[1])),
         type: 'POST',
         dataType: 'json',
         success: function success(timestamp) {
-          if (embeddedLastReadTimestamps && embeddedLastReadTimestamps[nodeID]) {
-            return;
-          }
-
-          storage.setItem("Drupal.relewise.".concat(currentUserID, ".").concat(nodeID), timestamp);
         }
       });
     },
-    needsServerCheck: function needsServerCheck(nodeID, contentTimestamp) {
-      if (contentTimestamp < thirtyDaysAgo) {
-        return false;
-      }
-
-      if (embeddedLastReadTimestamps && embeddedLastReadTimestamps[nodeID]) {
-        return contentTimestamp > parseInt(embeddedLastReadTimestamps[nodeID], 10);
-      }
-
-      var minLastReadTimestamp = parseInt(storage.getItem("Drupal.relewise.".concat(currentUserID, ".").concat(nodeID)) || 0, 10);
-      return contentTimestamp > minLastReadTimestamp;
-    }
   };
 })(jQuery, Drupal, drupalSettings, window.localStorage);

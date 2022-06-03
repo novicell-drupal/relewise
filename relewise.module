@@ -19,18 +19,19 @@ function relewise_locale_translation_projects_alter(&$projects) {
  */
 function relewise_entity_view_alter(array &$build, EntityInterface $entity, EntityViewDisplayInterface $display) {
   // TODO: Add tracking to other entity types.
+  /** @var \Drupal\relewise\Relewise $relewise */
   $relewise = \Drupal::service('relewise');
   if ($relewise->isSelectedForIndexing($entity) && $entity->getEntityTypeId() == 'node') {
     if ($entity->isNew() || isset($entity->in_preview)) {
       return;
     }
-    // Update the history table, stating that this user viewed this node.
+    // Add tracking library and settings, so we can track the content being viewed
     if ($display->getOriginalMode() === 'full') {
       // When the window's "load" event is triggered, mark the node as read.
       // This still allows for Drupal behaviors (which are triggered on the
       // "DOMContentReady" event) to add "new" and "updated" indicators.
-      $build['#attached']['library'][] = 'relewise/mark-as-read';
-      $build['#attached']['drupalSettings']['relewise']['nodesToMarkAsRead'][$entity->id()] = TRUE;
+      $build['#attached']['library'][] = 'relewise/content-view';
+      $build['#attached']['drupalSettings']['relewise']['contentViewed'][$relewise->getContentId($entity)] = TRUE;
     }
   }
 }

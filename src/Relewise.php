@@ -96,9 +96,9 @@ class Relewise {
    * @return bool
    */
   public function isSelectedForIndexing(EntityInterface $entity) {
-    if (empty(Settings::get('relewise.dataset', '')) || empty(Settings::get('relewise.apikey', ''))) {
+    /*if (empty(Settings::get('relewise.dataset', '')) || empty(Settings::get('relewise.apikey', ''))) {
       return FALSE;
-    }
+    }*/
     $config = \Drupal::config('relewise.settings');
     $bundles = $config->get('entity_bundles') ?? [];
     if (!empty($bundles[$entity->getEntityTypeId()]) && in_array($entity->bundle(), $bundles[$entity->getEntityTypeId()])) {
@@ -237,10 +237,11 @@ class Relewise {
    * @param \Drupal\relewise\DataTypes\Search\Sorting\Content\ContentSorting|null $sorting
    * @param int|null $count
    * @param int $page
+   * @param array $settings
    *
    * @return array|bool
    */
-  public function searchContent($term, array $fields = [], ?ContentSorting $sorting = NULL, $count = 10, $page = 0) {
+  public function searchContent($term, array $fields = [], ?ContentSorting $sorting = NULL, $count = 10, $page = 0, array $settings = []) {
     $facets = [];
     foreach ($fields as $key => $value) {
       if (is_array($value)) {
@@ -254,7 +255,31 @@ class Relewise {
       $skip = $page * $count;
     }
     $title = $this->titleResolver->getTitle($this->requestStack->getCurrentRequest(), $this->routeMatch->getRouteObject());
-    return $this->API->ContentSearchRequest($term, $facets, $sorting, $count, $skip, \Drupal::languageManager()->getCurrentLanguage()->getId(), 'DKK', $this->getCurrentUserArray(), $title);
+    $settings += [
+      "SelectedContentProperties" => []
+    ];
+    $settings['SelectedContentProperties'] += [
+      "DisplayName" => TRUE,
+      "CategoryPaths" => FALSE,
+      "Assortments" => FALSE,
+      "AllData" => FALSE,
+      "ViewedByUserInfo" => FALSE
+    ];
+
+    return $this->API->ContentSearchRequest($term, $facets, $sorting, $count, $skip, \Drupal::languageManager()->getCurrentLanguage()->getId(), 'DKK', $this->getCurrentUserArray(), $title, $settings);
+  }
+
+  /**
+   * Predict search terms for content based on partial term.
+   *
+   * @param $term
+   * @param $count
+   *
+   * @return array|bool
+   */
+  public function searchTermPrediction($term, $count = 10) {
+    $title = $this->titleResolver->getTitle($this->requestStack->getCurrentRequest(), $this->routeMatch->getRouteObject());
+    return $this->API->SearchTermPredictionRequest($term, $count, \Drupal::languageManager()->getCurrentLanguage()->getId(), 'DKK', $this->getCurrentUserArray(), $title);
   }
 
   /**

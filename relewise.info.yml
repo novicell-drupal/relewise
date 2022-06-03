@@ -2,7 +2,7 @@ name: Relewise
 description: Implements Relewise search functionality
 type: module
 core_version_requirement: ^8 || ^9
-version: '1.0'
+version: '1.1'
 
 dependencies:
   - core:node
