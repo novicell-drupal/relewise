@@ -20,6 +20,7 @@ use Symfony\Component\HttpFoundation\Request;
  *  id = "relewise",
  *  title = "Relewise",
  *  facets = {
+ *    "owner",
  *    "count",
  *    "sort",
  *    "text"
@@ -81,6 +82,9 @@ class RelewiseEngine extends EngineBase {
     if (!empty($this->overviewManager->getBundle($entity_bundle))) {
       $fields['bundle'] = [$this->overviewManager->getBundle($entity_bundle)];
     }
+    if (!empty($filter['owner'])) {
+      $fields['owner'] = $filter['owner'];
+    }
     foreach ($filter['fields'] ?? [] as $key => $value) {
       if ($key !== 'text' && !empty($value)) {
         $fields[$key] = $value;
@@ -101,7 +105,7 @@ class RelewiseEngine extends EngineBase {
         $sorting = new ContentPopularitySorting();
         break;
     }
-    $result = $this->relewise->searchContent($filter['fields']['text'] ?? '', $fields, $sorting, $filter['count'] ?? NULL, $page);
+    $result = $this->relewise->searchContent($filter['text'] ?? '', $fields, $sorting, $filter['count'] ?? NULL, $page);
     if ($result !== FALSE && !empty($result['hits']) && $result['hits'] > 0) {
       $this->setCount($entity_bundle, $filter, $result['hits']);
     }

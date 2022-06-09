@@ -23,6 +23,7 @@ use Drupal\relewise\DataTypes\UserUpdate;
 use Drupal\relewise\Filters\ContentDataFilter;
 use Drupal\relewise\Filters\ContentIdFilter;
 use Drupal\relewise\Tracking\ContentView;
+use Drupal\user\EntityOwnerInterface;
 use Drupal\user\UserInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
 
@@ -334,6 +335,9 @@ class Relewise {
     }
     if ($entity instanceof EntityChangedInterface) {
       $content->addData('changed', $entity->getChangedTime());
+    }
+    if ($entity instanceof EntityOwnerInterface) {
+      $content->addData('owner', $entity->getOwnerId());
     }
     if ($entity instanceof NodeInterface) {
       /** @var NodeInterface $node */
