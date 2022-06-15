@@ -3,8 +3,10 @@
 namespace Drupal\relewise\Plugin\EntityOverview\Engine;
 
 use Drupal\Core\Cache\Cache;
+use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Http\RequestStack;
+use Drupal\Core\PageCache\ResponsePolicy\KillSwitch;
 use Drupal\Core\Pager\PagerManagerInterface;
 use Drupal\entity_overview\EngineBase;
 use Drupal\entity_overview\OverviewManager;
@@ -55,8 +57,8 @@ class RelewiseEngine extends EngineBase {
    */
   protected array $count = [];
 
-  public function __construct(array $configuration, $plugin_id, $plugin_definition, OverviewManager $overviewManager, EntityTypeManagerInterface $entityTypeManager, RequestStack $requestStack, Relewise $relewise, PagerManagerInterface $pagerManager) {
-    parent::__construct($configuration, $plugin_id, $plugin_definition, $overviewManager);
+  public function __construct(array $configuration, $plugin_id, $plugin_definition, OverviewManager $overviewManager, KillSwitch $killSwitch, EntityTypeManagerInterface $entityTypeManager, RequestStack $requestStack, Relewise $relewise, PagerManagerInterface $pagerManager) {
+    parent::__construct($configuration, $plugin_id, $plugin_definition, $overviewManager, $killSwitch);
     $this->entityTypeManager = $entityTypeManager;
     $this->relewise = $relewise;
     $this->request = $requestStack->getCurrentRequest();
@@ -66,6 +68,7 @@ class RelewiseEngine extends EngineBase {
   static public function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition) {
     return new static($configuration, $plugin_id, $plugin_definition,
       $container->get('entity_overview.manager'),
+      $container->get('page_cache_kill_switch'),
       $container->get('entity_type.manager'),
       $container->get('request_stack'),
       $container->get('relewise'),
@@ -128,7 +131,8 @@ class RelewiseEngine extends EngineBase {
         $content[$content_info[0]][] = $content_info[1];
       }
       foreach ($content as $entity_type => $entity_ids) {
-        $entities += $this->entityTypeManager->getStorage($entity_type)->loadMultiple($entity_ids);
+        $entities += $this->entityTypeManager->getStorage($entity_type)
+          ->loadMultiple($entity_ids);
       }
     }
     return $entities;
@@ -150,8 +154,10 @@ class RelewiseEngine extends EngineBase {
             ->condition('status', 1)
             ->count()
             ->execute();
-          \Drupal::cache()->set($cid, $total, Cache::PERMANENT, [$this->overviewManager->getEntityTypeID($entity_bundle) . '_list']);
-        } else {
+          \Drupal::cache()
+            ->set($cid, $total, Cache::PERMANENT, [$this->overviewManager->getEntityTypeID($entity_bundle) . '_list']);
+        }
+        else {
           $total = $cache->data;
         }
         $count = $this->getCount($entity_bundle, $filter);
@@ -161,7 +167,10 @@ class RelewiseEngine extends EngineBase {
         $total = $this->getCount($entity_bundle, $filter);
         break;
     }
-    return t('Showing @count out of @total', ['@count' => $count, '@total' => $total]);
+    return t('Showing @count out of @total', [
+      '@count' => $count,
+      '@total' => $total
+    ]);
   }
 
 
@@ -195,6 +204,12 @@ class RelewiseEngine extends EngineBase {
     $payload['entity_bundle'] = $entity_bundle;
     $hash = md5(serialize($payload));
     return $this->count[$hash] ?? NULL;
+  }
+
+  public function getCacheableMetadata($entity_bundle, bool $has_facets): CacheableMetadata {
+    $this->killSwitch->trigger();
+    $cache = new CacheableMetadata();
+    return $cache->setCacheMaxAge(0);
   }
 
 }
