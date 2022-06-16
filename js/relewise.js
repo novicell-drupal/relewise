@@ -10,7 +10,7 @@
     trackContentView: function trackContentView(contentID) {
       const content = contentID.split(':');
       $.ajax({
-        url: Drupal.url('relewise/'.concat(content[0], '/', content[1])),
+        url: Drupal.url('relewise/content_view/'.concat(content[0], '/', content[1])),
         type: 'POST',
         dataType: 'json',
         success: function success(timestamp) {
