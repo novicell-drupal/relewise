@@ -9,6 +9,7 @@ use Drupal\Core\Http\RequestStack;
 use Drupal\Core\PageCache\ResponsePolicy\KillSwitch;
 use Drupal\Core\Pager\PagerManagerInterface;
 use Drupal\entity_overview\EngineBase;
+use Drupal\entity_overview\OverviewFilter;
 use Drupal\entity_overview\OverviewManager;
 use Drupal\relewise\DataTypes\Search\Sorting\Content\ContentAttributeSorting;
 use Drupal\relewise\DataTypes\Search\Sorting\Content\ContentDataSorting;
@@ -27,7 +28,8 @@ use Symfony\Component\HttpFoundation\Request;
  *    "sort",
  *    "text"
  *  },
- *  global = true
+ *  multiple = true,
+ *  recommendations = true
  * )
  */
 class RelewiseEngine extends EngineBase {
@@ -76,25 +78,22 @@ class RelewiseEngine extends EngineBase {
     );
   }
 
-  public function getResult($entity_bundle, array $filter = [], $page = 0) {
-    $this->setCount($entity_bundle, $filter, 0);
+  public function getResult(OverviewFilter $filter) {
+    $this->setCount($filter, 0);
     $fields = [];
-    if (!empty($this->overviewManager->getEntityTypeID($entity_bundle))) {
-      $fields['type'] = $this->overviewManager->getEntityTypeID($entity_bundle);
+    $entity_types = $filter->getOverview()->getEntityBundles();
+    $fields['type'] = array_keys($entity_types);
+    $fields['bundle'] = [];
+    foreach ($entity_types as $entity_type => $bundles) {
+      $fields['bundle'] = array_merge($fields['bundle'], $bundles);
     }
-    if (!empty($this->overviewManager->getBundle($entity_bundle))) {
-      $fields['bundle'] = [$this->overviewManager->getBundle($entity_bundle)];
-    }
-    if (!empty($filter['owner'])) {
-      $fields['owner'] = $filter['owner'];
-    }
-    foreach ($filter['fields'] ?? [] as $key => $value) {
+    foreach ($filter->getFieldValues() as $key => $value) {
       if ($key !== 'text' && !empty($value)) {
         $fields[$key] = $value;
       }
     }
     $sorting = NULL;
-    switch ($filter['sort'] ?? NULL) {
+    switch ($filter->getSort()) {
       case 'newest':
         $sorting = new ContentDataSorting('changed');
         break;
@@ -108,21 +107,21 @@ class RelewiseEngine extends EngineBase {
         $sorting = new ContentPopularitySorting();
         break;
     }
-    $result = $this->relewise->searchContent($filter['text'] ?? '', $fields, $sorting, $filter['count'] ?? NULL, $page);
+    $result = $this->relewise->searchContent($filter->getFieldValue('text') ?? '', $fields, $sorting, $filter->getCount() ?? NULL, $filter->getPage());
     if ($result !== FALSE && !empty($result['hits']) && $result['hits'] > 0) {
-      $this->setCount($entity_bundle, $filter, $result['hits']);
+      $this->setCount($filter, $result['hits']);
     }
-    if ($filter['pagination'] ?? FALSE) {
-      $this->request->query->set('page', $page);
+    if ($filter->hasPagination()) {
+      $this->request->query->set('page', $filter->getPage());
       $element = $this->pagerManager->getMaxPagerElementId() + 1;
-      $this->pagerManager->createPager($this->getCount($entity_bundle, $filter), $filter['count'], $element);
+      $this->pagerManager->createPager($this->getCount($filter), $filter->getCount(), $element);
     }
     return $result;
   }
 
-  public function getEntities($entity_bundle, array $filter = [], $page = 0) {
+  public function getEntities(OverviewFilter $filter): array {
     $entities = [];
-    $result = $this->getResult($entity_bundle, $filter, $page);
+    $result = $this->getResult($filter);
     if ($result !== FALSE && !empty($result['hits']) && $result['hits'] > 0) {
       $content = [];
       foreach ($result['results'] as $item) {
@@ -138,33 +137,37 @@ class RelewiseEngine extends EngineBase {
     return $entities;
   }
 
-  public function getEntitiesTotal($entity_bundle, array $filter = [], $shown = 0) {
+  public function getEntitiesTotal(OverviewFilter $filter, $shown = 0) {
     $count = 0;
     $total = 0;
-    switch ($filter['show_total']) {
+    switch ($filter->getShowTotal()) {
       case 'filtered':
-        $cid = 'relewise:' . $entity_bundle . '_total';
+        $cid = 'relewise:' . $filter->getOverviewId() . '_total';
         $cache = \Drupal::cache()->get($cid);
         if ($cache === FALSE) {
-          $keys = $this->entityTypeManager->getDefinition($this->overviewManager->getEntityTypeID($entity_bundle))
-            ->getKeys();
-          $total = $this->entityTypeManager->getStorage($this->overviewManager->getEntityTypeID($entity_bundle))
-            ->getQuery()
-            ->condition($keys['bundle'], [$this->overviewManager->getBundle($entity_bundle)], 'IN')
-            ->condition('status', 1)
-            ->count()
-            ->execute();
+          $tags = [];
+          foreach ($filter->getOverview()->getEntityBundles() as $entity_type_id => $bundles) {
+            $keys = $this->entityTypeManager->getDefinition($entity_type_id)
+              ->getKeys();
+            $total += $this->entityTypeManager->getStorage($entity_type_id)
+              ->getQuery()
+              ->condition($keys['bundle'], $bundles, 'IN')
+              ->condition('status', 1)
+              ->count()
+              ->execute();
+            $tags[] = $entity_type_id . '_list';
+          }
           \Drupal::cache()
-            ->set($cid, $total, Cache::PERMANENT, [$this->overviewManager->getEntityTypeID($entity_bundle) . '_list']);
+            ->set($cid, $total, Cache::PERMANENT, $tags);
         }
         else {
           $total = $cache->data;
         }
-        $count = $this->getCount($entity_bundle, $filter);
+        $count = $this->getCount($filter);
         break;
       case 'shown':
         $count = $shown;
-        $total = $this->getCount($entity_bundle, $filter);
+        $total = $this->getCount($filter);
         break;
     }
     return t('Showing @count out of @total', [
@@ -174,7 +177,7 @@ class RelewiseEngine extends EngineBase {
   }
 
 
-  public function getSortCriterias() {
+  public function getSortCriterias(): array {
     return [
       'relevant' => $this->t('Most relevant'),
       'popular' => $this->t('Most popular'),
@@ -184,7 +187,7 @@ class RelewiseEngine extends EngineBase {
     ];
   }
 
-  public function getShowTotalOptions() {
+  public function getShowTotalOptions(): array {
     return [
       '' => t('None'),
       'filtered' => t('Filtered out of total number of items'),
@@ -192,21 +195,19 @@ class RelewiseEngine extends EngineBase {
     ];
   }
 
-  protected function setCount($entity_bundle, array $filter, $count) {
-    $payload = $filter;
-    $payload['entity_bundle'] = $entity_bundle;
+  protected function setCount(OverviewFilter $filter, $count) {
+    $payload = $filter->toArray();
     $hash = md5(serialize($payload));
     $this->count[$hash] = $count;
   }
 
-  protected function getCount($entity_bundle, array $filter) {
-    $payload = $filter;
-    $payload['entity_bundle'] = $entity_bundle;
+  protected function getCount(OverviewFilter $filter) {
+    $payload = $filter->toArray();
     $hash = md5(serialize($payload));
     return $this->count[$hash] ?? NULL;
   }
 
-  public function getCacheableMetadata($entity_bundle, bool $has_facets): CacheableMetadata {
+  public function getCacheableMetadata($filter, bool $has_facets): CacheableMetadata {
     $this->killSwitch->trigger();
     $cache = new CacheableMetadata();
     return $cache->setCacheMaxAge(0);

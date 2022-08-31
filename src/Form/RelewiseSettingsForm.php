@@ -158,9 +158,11 @@ class RelewiseSettingsForm extends ConfigFormBase {
     $bundles = [];
     $entity_types = $this->relewise->getSupportedEntityTypes();
     foreach ($entity_types as $entity_type) {
-      $bundles[$entity_type['id']] = [];
       foreach ($form_state->getValue(['entity_bundles', $entity_type['id']], []) as $bundle) {
         if (!empty($bundle)) {
+          if (!isset($bundles[$entity_type['id']])) {
+            $bundles[$entity_type['id']] = [];
+          }
           $bundles[$entity_type['id']][] = $bundle;
         }
       }
