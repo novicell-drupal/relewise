@@ -11,10 +11,12 @@ use Drupal\Core\Pager\PagerManagerInterface;
 use Drupal\entity_overview\EngineBase;
 use Drupal\entity_overview\OverviewFilter;
 use Drupal\entity_overview\OverviewManager;
+use Drupal\entity_overview\OverviewResultInterface;
 use Drupal\relewise\DataTypes\Search\Sorting\Content\ContentAttributeSorting;
 use Drupal\relewise\DataTypes\Search\Sorting\Content\ContentDataSorting;
 use Drupal\relewise\DataTypes\Search\Sorting\Content\ContentPopularitySorting;
 use Drupal\relewise\Relewise;
+use Drupal\relewise\RelewiseOverviewResult;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -78,6 +80,13 @@ class RelewiseEngine extends EngineBase {
     );
   }
 
+  /**
+   * @inheritDoc
+   */
+  public function getOverviewResult(OverviewFilter $filter): OverviewResultInterface {
+    return new RelewiseOverviewResult($this, $filter);
+  }
+
   public function getResult(OverviewFilter $filter) {
     $this->setCount($filter, 0);
     $fields = [];
@@ -108,9 +117,7 @@ class RelewiseEngine extends EngineBase {
         break;
     }
     $result = $this->relewise->searchContent($filter->getFieldValue('text') ?? '', $fields, $sorting, $filter->getCount() ?? NULL, $filter->getPage());
-    if ($result !== FALSE && !empty($result['hits']) && $result['hits'] > 0) {
-      $this->setCount($filter, $result['hits']);
-    }
+
     if ($filter->hasPagination()) {
       $this->request->query->set('page', $filter->getPage());
       $element = $this->pagerManager->getMaxPagerElementId() + 1;
@@ -120,8 +127,11 @@ class RelewiseEngine extends EngineBase {
   }
 
   public function getEntities(OverviewFilter $filter): array {
+    return $this->loadEntities($this->getResult($filter));
+  }
+
+  public function loadEntities(array $result): array {
     $entities = [];
-    $result = $this->getResult($filter);
     if ($result !== FALSE && !empty($result['hits']) && $result['hits'] > 0) {
       $content = [];
       foreach ($result['results'] as $item) {
@@ -184,14 +194,6 @@ class RelewiseEngine extends EngineBase {
       'newest' => $this->t('Newest first'),
       'oldest' => $this->t('Oldest first'),
       'alphabetical' => $this->t('Alphabetical')
-    ];
-  }
-
-  public function getShowTotalOptions(): array {
-    return [
-      '' => t('None'),
-      'filtered' => t('Filtered out of total number of items'),
-      'shown' => t('Shown items out of filtered number of items'),
     ];
   }
 
