@@ -13,7 +13,7 @@ class RelewiseOverviewResult implements OverviewResultInterface {
 
   protected OverviewFilter $filter;
 
-  protected array $result = [];
+  protected $result = [];
 
   protected array $entities = [];
 
