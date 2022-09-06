@@ -34,6 +34,9 @@ class RelewiseOverviewResult implements OverviewResultInterface {
       if ($this->result !== FALSE && !empty($this->result['hits']) && $this->result['hits'] > 0) {
         $this->counts['results'] = $this->result['hits'];
         $this->counts['shown'] = count($this->result['results']);
+      } else {
+        $this->counts['results'] = 0;
+        $this->counts['shown'] = 0;
       }
     }
     return $this->result;
