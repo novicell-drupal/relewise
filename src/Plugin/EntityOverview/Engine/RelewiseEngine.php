@@ -4,6 +4,7 @@ namespace Drupal\relewise\Plugin\EntityOverview\Engine;
 
 use Drupal\Core\Cache\Cache;
 use Drupal\Core\Cache\CacheableMetadata;
+use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Http\RequestStack;
 use Drupal\Core\PageCache\ResponsePolicy\KillSwitch;
@@ -35,6 +36,8 @@ use Symfony\Component\HttpFoundation\Request;
  * )
  */
 class RelewiseEngine extends EngineBase {
+
+  use DependencySerializationTrait;
 
   /**
    * @var \Drupal\Core\Entity\EntityTypeManagerInterface
