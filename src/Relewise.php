@@ -256,6 +256,11 @@ class Relewise {
       $skip = $page * $count;
     }
     $title = $this->titleResolver->getTitle($this->requestStack->getCurrentRequest(), $this->routeMatch->getRouteObject());
+    if (is_array($title)) {
+      /** @var \Drupal\Core\Render\RendererInterface $renderer */
+      $renderer = \Drupal::service('renderer');
+      $title = strip_tags($renderer->render($title));
+    }
     $settings += [
       "SelectedContentProperties" => []
     ];
