@@ -120,6 +120,9 @@ class RelewiseEngine extends EngineBase {
         break;
     }
     $result = $this->relewise->searchContent($filter->getFieldValue('text') ?? '', $fields, $sorting, $filter->getCount() ?? NULL, $filter->getPage());
+    if ($result !== FALSE && !empty($result['hits']) && $result['hits'] > 0) {
+      $this->setCount($filter, $result['hits']);
+    }
 
     if ($filter->hasPagination()) {
       $this->request->query->set('page', $filter->getPage());
