@@ -163,15 +163,15 @@ class RelewiseEngine extends EngineBase {
         if ($cache === FALSE) {
           $tags = [];
           foreach ($filter->getOverview()->getEntityBundles() as $entity_type_id => $bundles) {
-            $keys = $this->entityTypeManager->getDefinition($entity_type_id)
-              ->getKeys();
+            $entity_type = $this->entityTypeManager->getDefinition($entity_type_id);
+            $keys = $entity_type->getKeys();
             $total += $this->entityTypeManager->getStorage($entity_type_id)
               ->getQuery()
               ->condition($keys['bundle'], $bundles, 'IN')
               ->condition('status', 1)
               ->count()
               ->execute();
-            $tags[] = $entity_type_id . '_list';
+            $tags += $entity_type->getListCacheTags();
           }
           \Drupal::cache()
             ->set($cid, $total, Cache::PERMANENT, $tags);
