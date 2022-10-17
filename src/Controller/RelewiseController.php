@@ -2,6 +2,7 @@
 
 namespace Drupal\relewise\Controller;
 
+use Drupal\Core\Url;
 use Drupal\relewise\Relewise;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -43,7 +44,15 @@ class RelewiseController extends ControllerBase {
   }
 
   public function searchContent($term) {
-    return new JsonResponse($this->relewise->searchContent($term, [], NULL, 10, 0, ['SelectedContentProperties' => ['AllData' => TRUE]]));
+    $result = $this->relewise->searchContent($term, [], NULL, 10, 0, ['SelectedContentProperties' => ['AllData' => TRUE]]);
+    foreach ($result['results'] as $key => $value) {
+      $info = explode(':', $value['contentId']);
+      $entity_type_id = $info[0];
+      $id = $info[1];
+      $url = Url::fromRoute('entity.' . $entity_type_id . '.canonical', [$entity_type_id => $id]);
+      $result['results'][$key]['href'] = $url->toString();
+    }
+    return new JsonResponse($result);
   }
 
   public function searchTermPrediction($term) {
