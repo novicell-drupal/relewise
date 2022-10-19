@@ -107,10 +107,10 @@ class RelewiseEngine extends EngineBase {
     $sorting = NULL;
     switch ($filter->getSort()) {
       case 'newest':
-        $sorting = new ContentDataSorting('changed');
+        $sorting = new ContentDataSorting($filter->getOverview()->getSortField());
         break;
       case 'oldest':
-        $sorting = new ContentDataSorting('changed', 'Ascending');
+        $sorting = new ContentDataSorting($filter->getOverview()->getSortField(), 'Ascending');
         break;
       case 'alphabetical':
         $sorting = new ContentAttributeSorting('DisplayName', 'Ascending');
