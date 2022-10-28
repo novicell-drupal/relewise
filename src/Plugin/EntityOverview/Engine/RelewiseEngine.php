@@ -29,7 +29,8 @@ use Symfony\Component\HttpFoundation\Request;
  *    "owner",
  *    "count",
  *    "sort",
- *    "text"
+ *    "text",
+ *    "pagination"
  *  },
  *  multiple = true,
  *  recommendations = true
