@@ -127,8 +127,7 @@ class RelewiseEngine extends EngineBase {
 
     if ($filter->hasPagination()) {
       $this->request->query->set('page', $filter->getPage());
-      $element = $this->pagerManager->getMaxPagerElementId() + 1;
-      $this->pagerManager->createPager($this->getCount($filter), $filter->getCount(), $element);
+      $this->pagerManager->createPager($this->getCount($filter), $filter->getCount(), 0);
     }
     return $result;
   }
