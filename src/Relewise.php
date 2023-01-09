@@ -230,6 +230,29 @@ class Relewise {
     }
   }
 
+  public function reindex() {
+    $config = \Drupal::config('relewise.settings');
+    $bundles = $config->get('entity_bundles') ?? [];
+
+    foreach ($bundles as $entity_type => $bundle_ids) {
+      if (empty($bundle_ids)) {
+        continue;
+      }
+      $ids = $this->entityTypeManager->getStorage($entity_type)->getQuery()
+        ->condition($this->entityTypeManager->getDefinition($entity_type)->getKey('bundle'), $bundle_ids, 'IN')
+        ->condition('status', 1)
+        ->execute();
+      $chunks = array_chunk($ids, $config->get('index_batch_size') ?? 50);
+      $queue = \Drupal::queue('relewise_content_update');
+      foreach ($chunks as $chunk) {
+        $queue->createItem([
+          'entity_type' => $entity_type,
+          'entity_ids' => $chunk
+        ]);
+      }
+    }
+  }
+
   /**
    * Performs a search for content in the index.
    *
@@ -331,6 +354,7 @@ class Relewise {
   protected function getContent(EntityInterface $entity) {
     $content = new Content($this->getContentId($entity));
     $langcode = $entity->language()->getId();
+    dpm($entity->label());
     $content->DisplayName()->addValue($entity->label(), $langcode);
     $content->addData('type', $entity->getEntityTypeId());
     $content->addData('bundle', $entity->bundle());

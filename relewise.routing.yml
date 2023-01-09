@@ -19,6 +19,22 @@ relewise.searchTermPrediction:
   requirements:
     _access: 'TRUE'
 
+relewise.reindex:
+  path: '/admin/config/search/relewise/reindex'
+  defaults:
+    _controller: '\Drupal\relewise\Controller\RelewiseController::reindex'
+    _title: 'Reindex'
+  requirements:
+    _permission: 'configure relewise'
+
+relewise.purge:
+  path: '/admin/config/search/relewise/purge'
+  defaults:
+    _controller: '\Drupal\relewise\Controller\RelewiseController::purge'
+    _title: 'Purge'
+  requirements:
+    _permission: 'configure relewise'
+
 relewise.settings:
   path: '/admin/config/search/relewise'
   defaults:

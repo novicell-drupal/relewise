@@ -14,6 +14,7 @@ use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\ConfigFormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Messenger\MessengerInterface;
+use Drupal\Core\Url;
 use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\relewise\Relewise;
@@ -147,7 +148,20 @@ class RelewiseSettingsForm extends ConfigFormBase {
       );
     }
 
-    return parent::buildform($form, $form_state);
+    $form = parent::buildform($form, $form_state);
+    $form['actions']['reindex'] = [
+      '#type' => 'link',
+      '#attributes' => ['class' => 'button'],
+      '#title' => $this->t('Re-index site'),
+      '#url' => Url::fromRoute('relewise.reindex')
+    ];
+    $form['actions']['purge'] = [
+      '#type' => 'link',
+      '#attributes' => ['class' => ['button', 'button--danger']],
+      '#title' => $this->t('Reset'),
+      '#url' => Url::fromRoute('relewise.purge')
+    ];
+    return $form;
   }
 
   public function submitForm(array &$form, FormStateInterface $form_state) {
@@ -170,26 +184,6 @@ class RelewiseSettingsForm extends ConfigFormBase {
     $config->set('entity_bundles', $bundles);
 
     $config->save();
-
-    if ($this->relewise->resetIndex()) {
-      foreach ($bundles as $entity_type => $bundle_ids) {
-        if (empty($bundle_ids)) {
-          continue;
-        }
-        $ids = $this->entityTypeManager->getStorage($entity_type)->getQuery()
-          ->condition($this->entityTypeManager->getDefinition($entity_type)->getKey('bundle'), $bundle_ids, 'IN')
-          ->condition('status', 1)
-          ->execute();
-        $chunks = array_chunk($ids, $form_state->getValue('index_batch_size'));
-        $queue = \Drupal::queue('relewise_content_update');
-        foreach ($chunks as $chunk) {
-          $queue->createItem([
-            'entity_type' => $entity_type,
-            'entity_ids' => $chunk
-          ]);
-        }
-      }
-    }
 
     parent::submitForm($form, $form_state);
   }

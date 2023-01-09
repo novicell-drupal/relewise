@@ -7,6 +7,7 @@ use Drupal\relewise\Relewise;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Drupal\Core\Controller\ControllerBase;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 
 /**
  * Returns responses for Relewise module routes.
@@ -64,6 +65,20 @@ class RelewiseController extends ControllerBase {
    */
   public function dashboard() {
     return [];
+  }
+
+  public function reindex() {
+    $this->relewise->reindex();
+    $url = Url::fromRoute('relewise.settings');
+    \Drupal::messenger()->addStatus($this->t('Relewise search index is being re-indexed.'));
+    return new RedirectResponse($url->toString());
+  }
+
+  public function purge() {
+    $this->relewise->resetIndex();
+    $url = Url::fromRoute('relewise.settings');
+    \Drupal::messenger()->addStatus($this->t('Relewise search index has been purged.'));
+    return new RedirectResponse($url->toString());
   }
 
 }
