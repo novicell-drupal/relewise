@@ -25,7 +25,7 @@ class Multilingual extends DataType {
    */
   public function addValue(string $text, $langcode = NULL) {
     if ($langcode == NULL) {
-      $langcode = \Drupal::languageManager()->getDefaultLanguage();
+      $langcode = \Drupal::languageManager()->getDefaultLanguage()->getId();
     }
     $this->values[$langcode] = $text;
   }
