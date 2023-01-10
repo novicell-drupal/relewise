@@ -209,6 +209,34 @@ class Relewise {
   }
 
   /**
+   * Enable an entity in the index.
+   *
+   * @param \Drupal\Core\Entity\EntityInterface $entity
+   *
+   * @return bool
+   */
+  public function enableContentIndex(EntityInterface $entity) {
+    $filters = [
+      new ContentIdFilter([$this->getContentId($entity)])
+    ];
+    return $this->API->TrackContentAdministrativeActionRequest(new ContentAdministrativeAction('EnableInRecommendations', $filters));
+  }
+
+  /**
+   * Disables an entity in the index.
+   *
+   * @param \Drupal\Core\Entity\EntityInterface $entity
+   *
+   * @return bool
+   */
+  public function disableContentIndex(EntityInterface $entity) {
+    $filters = [
+      new ContentIdFilter([$this->getContentId($entity)])
+    ];
+    return $this->API->TrackContentAdministrativeActionRequest(new ContentAdministrativeAction('DisableInRecommendations', $filters));
+  }
+
+  /**
    * Deletes all content from index and queues reindexing. Warning: may lose tracking data.
    *
    * @return bool
