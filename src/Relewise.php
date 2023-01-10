@@ -354,7 +354,6 @@ class Relewise {
   protected function getContent(EntityInterface $entity) {
     $content = new Content($this->getContentId($entity));
     $langcode = $entity->language()->getId();
-    dpm($entity->label());
     $content->DisplayName()->addValue($entity->label(), $langcode);
     $content->addData('type', $entity->getEntityTypeId());
     $content->addData('bundle', $entity->bundle());
