@@ -165,15 +165,23 @@ class Relewise {
    * @param \Drupal\Core\Entity\EntityInterface[] $entities
    */
   public function updateContentIndexMultiple(array $entities) {
-    $batch = []; $published = []; $unpublished = [];
+    $batch = [];
+    $published = [];
+    $unpublished = [];
+    $deleted = [];
     foreach ($entities as $entity) {
       $content = $this->getContent($entity);
-      $batch[] = new ContentUpdate('UpdateAndAppend', $content);
-      if ($entity instanceof EntityPublishedInterface) {
-        if ($entity->isPublished()) {
-          $published[] = $this->getContentId($entity);
-        } else {
-          $unpublished[] = $this->getContentId($entity);
+      if (is_null($content)) {
+        $deleted[] = $this->getContentId($entity);
+      } else {
+        $batch[] = new ContentUpdate('UpdateAndAppend', $content);
+        if ($entity instanceof EntityPublishedInterface) {
+          if ($entity->isPublished()) {
+            $published[] = $this->getContentId($entity);
+          }
+          else {
+            $unpublished[] = $this->getContentId($entity);
+          }
         }
       }
     }
@@ -185,6 +193,11 @@ class Relewise {
     if (!empty($unpublished)) {
       $batch[] = new ContentAdministrativeAction('DisableInRecommendations', [
         new ContentIdFilter($unpublished)
+      ]);
+    }
+    if (!empty($deleted)) {
+      $batch[] = new ContentAdministrativeAction('PermanentlyDelete', [
+        new ContentIdFilter($deleted)
       ]);
     }
     if (!empty($content)) {
@@ -472,7 +485,7 @@ class Relewise {
   }
 
   /**
-   * Returns whether or not an entity type can be indexed.
+   * Returns whether an entity type can be indexed.
    *
    * @param \Drupal\Core\Entity\EntityTypeInterface $entity_type
    *
