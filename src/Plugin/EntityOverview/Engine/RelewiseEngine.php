@@ -91,8 +91,7 @@ class RelewiseEngine extends EngineBase {
     return new RelewiseOverviewResult($this, $filter);
   }
 
-  public function getResult(OverviewFilter $filter) {
-    $this->setCount($filter, 0);
+  protected function getSearchFields(OverviewFilter $filter) {
     $fields = [];
     $entity_types = $filter->getOverview()->getEntityBundles();
     $fields['type'] = array_keys($entity_types);
@@ -105,6 +104,10 @@ class RelewiseEngine extends EngineBase {
         $fields[$key] = $value;
       }
     }
+    return $fields;
+  }
+
+  protected function getSearchSorting(OverviewFilter $filter) {
     $sorting = NULL;
     switch ($filter->getSort()) {
       case 'newest':
@@ -120,7 +123,19 @@ class RelewiseEngine extends EngineBase {
         $sorting = new ContentPopularitySorting();
         break;
     }
-    $result = $this->relewise->searchContent($filter->getFieldValue('text') ?? '', $fields, $sorting, $filter->getCount() ?? NULL, $filter->getPage());
+    return $sorting;
+  }
+
+  protected function getSearchTerm(OverviewFilter $filter) {
+    return $filter->getFieldValue('text') ?? '';
+  }
+
+  public function getResult(OverviewFilter $filter) {
+    $this->setCount($filter, 0);
+    $fields = $this->getSearchFields($filter);
+    $sorting = $this->getSearchSorting($filter);
+    $term = $this->getSearchTerm($filter);
+    $result = $this->relewise->searchContent($term, $fields, $sorting, $filter->getCount() ?? NULL, $filter->getPage());
     if ($result !== FALSE && !empty($result['hits']) && $result['hits'] > 0) {
       $this->setCount($filter, $result['hits']);
     }
