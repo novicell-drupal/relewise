@@ -280,6 +280,7 @@ class Relewise {
         continue;
       }
       $ids = $this->entityTypeManager->getStorage($entity_type)->getQuery()
+        ->accessCheck(FALSE)
         ->condition($this->entityTypeManager->getDefinition($entity_type)->getKey('bundle'), $bundle_ids, 'IN')
         ->condition('status', 1)
         ->execute();
