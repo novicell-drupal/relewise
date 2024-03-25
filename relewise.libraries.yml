@@ -8,9 +8,9 @@ api:
     - core/drupal
     - core/drupal.ajax
 
-content-view:
+entity-view:
   version: VERSION
   js:
-    js/content-view.js: {}
+    js/entity-view.js: {}
   dependencies:
     - relewise/api

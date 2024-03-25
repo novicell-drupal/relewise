@@ -2,22 +2,16 @@
 
 namespace Drupal\relewise\Form;
 
-use Drupal\content_hierarchy\ContentHierarchyData;
-use Drupal\content_hierarchy\ContentHierarchyWidgets;
-use Drupal\content_moderation\ModerationInformationInterface;
-use Drupal\Core\Cache\Cache;
 use Drupal\Core\Config\ConfigFactoryInterface;
-use Drupal\Core\Entity\ContentEntityInterface;
+use Drupal\Core\Datetime\DateFormatterInterface;
 use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
-use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\ConfigFormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Messenger\MessengerInterface;
 use Drupal\Core\Url;
-use Drupal\field\Entity\FieldConfig;
-use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\relewise\Relewise;
+use Drupal\relewise\RelewiseIndexer;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 class RelewiseSettingsForm extends ConfigFormBase {
@@ -42,11 +36,21 @@ class RelewiseSettingsForm extends ConfigFormBase {
   protected $relewise;
 
   /**
+   * @var \Drupal\relewise\RelewiseIndexer
+   */
+  protected $relewiseIndexer;
+
+  /**
    * The Messenger service.
    *
    * @var \Drupal\Core\Messenger\MessengerInterface
    */
   protected $messenger;
+
+  /**
+   * @var \Drupal\Core\Datetime\DateFormatterInterface
+   */
+  private DateFormatterInterface $dateFormatter;
 
   /**
    * {@inheritdoc}
@@ -55,21 +59,25 @@ class RelewiseSettingsForm extends ConfigFormBase {
     return new static(
       $container->get('config.factory'),
       $container->get('relewise'),
+      $container->get('relewise.indexer'),
       $container->get('entity_type.manager'),
       $container->get('entity_type.bundle.info'),
-      $container->get('messenger')
+      $container->get('messenger'),
+      $container->get('date.formatter')
     );
   }
 
   /**
    * {@inheritdoc}
    */
-  public function __construct(ConfigFactoryInterface $config_factory, Relewise $relewise, EntityTypeManagerInterface $entityTypeManager, EntityTypeBundleInfoInterface $entityTypeBundleInfo, MessengerInterface $messenger) {
+  public function __construct(ConfigFactoryInterface $config_factory, Relewise $relewise, RelewiseIndexer $relewiseIndexer, EntityTypeManagerInterface $entityTypeManager, EntityTypeBundleInfoInterface $entityTypeBundleInfo, MessengerInterface $messenger, DateFormatterInterface $dateFormatter) {
     parent::__construct($config_factory);
     $this->relewise = $relewise;
+    $this->relewiseIndexer = $relewiseIndexer;
     $this->messenger = $messenger;
     $this->entityTypeManager = $entityTypeManager;
     $this->entityTypeBundleInfo = $entityTypeBundleInfo;
+    $this->dateFormatter = $dateFormatter;
   }
 
   /**
@@ -103,11 +111,16 @@ class RelewiseSettingsForm extends ConfigFormBase {
     $config = $this->config('relewise.settings');
 
     $form['#tree'] = TRUE;
-    $form['settings'] = [
-      '#type' => 'item',
-      '#open' => TRUE,
-      '#title' => $this->t('Relewise settings'),
-      '#description' => ''
+
+    $remaining = $this->relewiseIndexer->getSizeOfIndexQueue();
+    $total = $this->relewiseIndexer->getTotalSizeOfIndexQueue();
+    $done = $total - $remaining;
+    $percentage = $total > 0 ? floor(100 * $done / $total) : 100;
+    $form['index_progress'] = [
+      '#theme' => 'progress_bar',
+      '#label' => $this->t('Search index progress'),
+      '#percent' => $percentage,
+      '#message' => $this->t('%num_indexed of %num_total indexed', ['%num_indexed' => $done, '%num_total' => $total])
     ];
 
     $options = [
@@ -115,7 +128,10 @@ class RelewiseSettingsForm extends ConfigFormBase {
       25 => 25,
       50 => 50,
       100 => 100,
-      200 => 200
+      200 => 200,
+      300 => 300,
+      400 => 400,
+      500 => 500
     ];
     $form['index_batch_size'] = [
       '#type' => 'select',
@@ -125,28 +141,24 @@ class RelewiseSettingsForm extends ConfigFormBase {
       '#default_value' => $config->get('index_batch_size') ?? 50
     ];
 
-    $form['entity_bundles'] = array(
-      '#type' => 'details',
-      '#title' => $this->t('Entity types'),
-      '#open' => TRUE
-    );
+    // Identical options to the ones for block caching.
+    // @see \Drupal\Core\Block\BlockBase::buildConfigurationForm()
+    $period = [0, 60, 180, 300, 600, 900, 1800, 2700, 3600, 10800, 21600, 32400, 43200, 86400];
+    $period = array_map([$this->dateFormatter, 'formatInterval'], array_combine($period, $period));
+    $period[0] = '<' . $this->t('no caching') . '>';
+    $form['cache_default_max_age'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Default cache maximum age'),
+      '#default_value' => $config->get('cache_default_max_age') ?? 0,
+      '#options' => $period,
+    ];
+    $form['cache_personal_max_age'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Cache maximum age for requests involving personalisation'),
+      '#default_value' => $config->get('cache_personal_max_age') ?? 0,
+      '#options' => $period,
+    ];
 
-    $bundles = $config->get('entity_bundles') ?? [];
-    $entity_types = $this->relewise->getSupportedEntityTypes();
-    foreach ($entity_types as $entity_type) {
-      $options = [];
-      foreach ($entity_type['bundles'] as $bundle_id => $bundle) {
-        $options[$bundle_id] = $bundle['label'];
-      }
-
-      $form['entity_bundles'][$entity_type['id']] = array(
-        '#type' => 'checkboxes',
-        '#title' => $entity_type['label'],
-        '#description' => $this->t(''),
-        '#options' => $options,
-        '#default_value' => $bundles[$entity_type['id']] ?? []
-      );
-    }
 
     $form = parent::buildform($form, $form_state);
     $form['actions']['reindex'] = [
@@ -167,21 +179,9 @@ class RelewiseSettingsForm extends ConfigFormBase {
   public function submitForm(array &$form, FormStateInterface $form_state) {
     $config = $this->config('relewise.settings');
 
-    $config->set('index_batch_size', $form_state->getValue('index_batch_size'));
-
-    $bundles = [];
-    $entity_types = $this->relewise->getSupportedEntityTypes();
-    foreach ($entity_types as $entity_type) {
-      foreach ($form_state->getValue(['entity_bundles', $entity_type['id']], []) as $bundle) {
-        if (!empty($bundle)) {
-          if (!isset($bundles[$entity_type['id']])) {
-            $bundles[$entity_type['id']] = [];
-          }
-          $bundles[$entity_type['id']][] = $bundle;
-        }
-      }
-    }
-    $config->set('entity_bundles', $bundles);
+    $config->set('index_batch_size', intval($form_state->getValue('index_batch_size')));
+    $config->set('cache_default_max_age', intval($form_state->getValue('cache_default_max_age')));
+    $config->set('cache_personal_max_age', intval($form_state->getValue('cache_personal_max_age')));
 
     $config->save();
 

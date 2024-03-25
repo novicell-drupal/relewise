@@ -1,0 +1,4 @@
+relewise_autocomplete.settings:
+  route_name: relewise_autocomplete.settings
+  base_route: relewise.settings
+  title: Autocomplete

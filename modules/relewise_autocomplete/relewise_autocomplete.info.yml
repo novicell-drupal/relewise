@@ -1,0 +1,11 @@
+name: Relewise autocomplete
+description: Adds autocomplete search functionality
+type: module
+core_version_requirement: ^9 || ^10
+version: '3.0'
+
+dependencies:
+  - core:node
+
+interface translation project: relewise
+interface translation server pattern: modules/relewise/translations/%language.po

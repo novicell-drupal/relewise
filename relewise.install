@@ -1,0 +1,41 @@
+<?php
+
+use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Entity\EntityTypeInterface;
+
+/**
+ * Implements hook_schema().
+ */
+function relewise_schema() {
+  $schema['relewise_queue'] = [
+    'description' => 'Relewise indexing queue.',
+    'fields' => [
+      'entity_type_id' => [
+        'type' => 'varchar_ascii',
+        'length' => EntityTypeInterface::ID_MAX_LENGTH,
+        'not null' => TRUE,
+      ],
+      'entity_id' => [
+        'type' => 'varchar_ascii',
+        'length' => EntityTypeInterface::ID_MAX_LENGTH,
+        'not null' => TRUE,
+      ],
+      'timestamp' => [
+        'type' => 'int',
+        'not null' => TRUE,
+      ],
+    ],
+    'primary key' => ['entity_type_id', 'entity_id'],
+  ];
+
+  return $schema;
+}
+
+/**
+ * Create new index queue table.
+ */
+function relewise_update_9001(&$sandbox) {
+  $schema = \Drupal::database()->schema();
+  $table_schema = relewise_schema();
+  $schema->createTable('relewise_queue', $table_schema['relewise_queue']);
+}

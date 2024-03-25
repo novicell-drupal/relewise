@@ -3,111 +3,129 @@ namespace Drupal\relewise;
 
 use Drupal\Component\Plugin\Exception\InvalidPluginDefinitionException;
 use Drupal\Component\Plugin\Exception\PluginNotFoundException;
-use Drupal\Core\Controller\TitleResolverInterface;
-use Drupal\Core\Entity\EntityChangedInterface;
 use Drupal\Core\Entity\EntityInterface;
-use Drupal\Core\Entity\EntityPublishedInterface;
 use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
-use Drupal\Core\Entity\EntityTypeInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Routing\RouteMatchInterface;
 use Drupal\Core\Site\Settings;
-use Drupal\node\NodeInterface;
-use Drupal\relewise\Conditions\EqualsCondition;
-use Drupal\relewise\DataTypes\ContentAdministrativeAction;
-use Drupal\relewise\DataTypes\ContentUpdate;
-use Drupal\relewise\DataTypes\Search\Facets\Queries\ContentDataStringValueFacet;
-use Drupal\relewise\DataTypes\Search\Sorting\Content\ContentSorting;
-use Drupal\relewise\DataTypes\UserUpdate;
-use Drupal\relewise\Filters\ContentDataFilter;
-use Drupal\relewise\Filters\ContentIdFilter;
-use Drupal\relewise\Tracking\ContentView;
-use Drupal\user\EntityOwnerInterface;
+use Drupal\Core\StringTranslation\StringTranslationTrait;
+use Drupal\relewise\Entity\RelewiseIndex;
 use Drupal\user\UserInterface;
+use Relewise\Factory\UserFactory;
+use Relewise\Models\Brand;
+use Relewise\Models\Content;
+use Relewise\Models\ContentDataFilter;
+use Relewise\Models\ContentFacetQuery;
+use Relewise\Models\ContentSearchRequest;
+use Relewise\Models\ContentSearchResponse;
+use Relewise\Models\ContentSearchSettings;
+use Relewise\Models\ContentSortBySpecification;
+use Relewise\Models\ContentSorting;
+use Relewise\Models\Currency;
+use Relewise\Models\FilterCollection;
+use Relewise\Models\Language;
+use Relewise\Models\Product;
+use Relewise\Models\ProductDataFilter;
+use Relewise\Models\ProductFacetQuery;
+use Relewise\Models\ProductSearchRequest;
+use Relewise\Models\ProductSearchResponse;
+use Relewise\Models\ProductSearchSettings;
+use Relewise\Models\ProductSortBySpecification;
+use Relewise\Models\ProductSorting;
+use Relewise\Models\SearchIndexSelector;
+use Relewise\Models\SearchTermPredictionRequest;
+use Relewise\Models\SearchTermPredictionResponse;
+use Relewise\Models\SelectedContentPropertiesSettings;
+use Relewise\Models\SelectedProductPropertiesSettings;
+use Relewise\Models\TrackUserUpdateRequest;
+use Relewise\Models\User;
+use Relewise\Models\UserUpdate;
+use Relewise\Models\UserUpdateUpdateKind;
+use Relewise\Recommender;
+use Relewise\SearchAdministrator;
+use Relewise\Searcher;
+use Relewise\Tracker;
 use Symfony\Component\HttpFoundation\RequestStack;
+use Symfony\Component\Routing\Route;
 
 class Relewise {
 
-
-  /**
-   * The Relewise API service.
-   *
-   * @var \Drupal\relewise\RelewiseAPI
-   */
-  protected $API;
+  use StringTranslationTrait;
 
   /**
    * The entity type manager service.
-   *
-   * @var \Drupal\Core\Entity\EntityTypeManagerInterface
    */
-  protected $entityTypeManager;
+  protected EntityTypeManagerInterface $entityTypeManager;
 
   /**
    * The entity type bundle info service.
-   *
-   * @var \Drupal\Core\Entity\EntityTypeBundleInfoInterface
    */
-  protected $entityTypeBundleInfo;
+  protected EntityTypeBundleInfoInterface $entityTypeBundleInfo;
 
   /**
    * The module handler service.
-   *
-   * @var ModuleHandlerInterface
    */
-  protected $moduleHandler;
-
-  /**
-   * The title resolver.
-   *
-   * @var \Drupal\Core\Controller\TitleResolverInterface
-   */
-  protected $titleResolver;
-
-  /**
-   * Route match.
-   *
-   * @var \Drupal\Core\Routing\RouteMatchInterface
-   */
-  protected $routeMatch;
+  protected ModuleHandlerInterface $moduleHandler;
 
   /**
    * The current request.
-   *
-   * @var \Drupal\Core\Controller\TitleResolverInterface
    */
-  protected $requestStack;
+  protected RequestStack $requestStack;
 
-  public function __construct(RelewiseAPI $API, EntityTypeManagerInterface $entityTypeManager, EntityTypeBundleInfoInterface $entityTypeBundleInfo, ModuleHandlerInterface $moduleHandler, TitleResolverInterface $titleResolver, RouteMatchInterface $routeMatch, RequestStack $requestStack) {
-    $this->API = $API;
+  /**
+   * @var string
+   */
+  protected string $datasetId;
+
+  /**
+   * @var string
+   */
+  protected string $APIKey;
+
+  protected Searcher $searcher;
+  protected SearchAdministrator $searchAdministrator;
+  protected Tracker $tracker;
+  protected Recommender $recommender;
+  protected RouteMatchInterface $routeMatch;
+
+  public function __construct(EntityTypeManagerInterface $entityTypeManager, EntityTypeBundleInfoInterface $entityTypeBundleInfo, ModuleHandlerInterface $moduleHandler, RequestStack $requestStack, RouteMatchInterface $routeMatch) {
     $this->entityTypeManager = $entityTypeManager;
     $this->entityTypeBundleInfo = $entityTypeBundleInfo;
     $this->moduleHandler = $moduleHandler;
-    $this->titleResolver = $titleResolver;
-    $this->routeMatch = $routeMatch;
     $this->requestStack = $requestStack;
+    $this->routeMatch = $routeMatch;
+    $this->datasetId = Settings::get('relewise.dataset', '');
+    $this->APIKey = Settings::get('relewise.apikey', '');
   }
 
   /**
-   * Tells whether an entity is selected indexing in the config.
+   * Returns array keyed by type and with label as value.
    *
-   * @param \Drupal\Core\Entity\EntityInterface $entity
-   *
-   * @return bool
+   * @return array
    */
-  public function isSelectedForIndexing(EntityInterface $entity) {
-    /*if (empty(Settings::get('relewise.dataset', '')) || empty(Settings::get('relewise.apikey', ''))) {
-      return FALSE;
-    }*/
-    $config = \Drupal::config('relewise.settings');
-    $bundles = $config->get('entity_bundles') ?? [];
-    if (!empty($bundles[$entity->getEntityTypeId()]) && in_array($entity->bundle(), $bundles[$entity->getEntityTypeId()])) {
-      return TRUE;
+  public function getRelewiseTypes(): array {
+    return [
+      'content' => $this->t('Content'),
+      'product' => $this->t('Product'),
+      'brand' => $this->t('Brand')
+    ];
+  }
+
+  /**
+   * @return string[]
+   */
+  public function getIndexOptions($required = FALSE) {
+    if ($required) {
+      $options = [];
+    } else {
+      $options = ['' => ' - ' . $this->t('Default') . ' - '];
     }
-    else {
-      return FALSE;
+    $indexes = RelewiseIndex::loadMultiple();
+    foreach ($indexes as $index) {
+      $options[$index->id()] = $index->label();
     }
+    return $options;
   }
 
   /**
@@ -118,226 +136,135 @@ class Relewise {
    * @return bool
    */
   public function userUpdate(UserInterface $user) {
-    return $this->API->TrackUserUpdateRequest(new UserUpdate('UpdateAndAppend', $this->getCurrentUserArray()));
-  }
-
-  /**
-   * Register content view on an entity.
-   *
-   * @param \Drupal\Core\Entity\EntityInterface $entity
-   *
-   * @return bool
-   */
-  public function registerContentView(EntityInterface $entity) {
-    return $this->API->TrackContentViewRequest(
-      new ContentView($this->getCurrentUserArray(), $this->getContentId($entity))
+    $request = TrackUserUpdateRequest::create(
+      UserUpdate::create($this->getCurrentUser(), UserUpdateUpdateKind::UpdateAndAppend)
     );
-  }
-
-  /**
-   * Updates the index on a single entity.
-   *
-   * @param \Drupal\Core\Entity\EntityInterface $entity
-   */
-  public function updateContentIndex(EntityInterface $entity) {
-    $content = $this->getContent($entity);
-    if (!empty($content)) {
-      if ($this->API->TrackContentUpdateRequest(new ContentUpdate('UpdateAndAppend', $content))) {
-        if ($entity instanceof EntityPublishedInterface) {
-          $filters = [
-            new ContentIdFilter([$this->getContentId($entity)])
-          ];
-          if ($entity->isPublished()) {
-            $this->API->TrackContentAdministrativeActionRequest(new ContentAdministrativeAction('EnableInRecommendations', $filters));
-          } else {
-            $this->API->TrackContentAdministrativeActionRequest(new ContentAdministrativeAction('DisableInRecommendations', $filters));
-          }
-        }
-      } else {
-        \Drupal::logger('relewise')->error('Could not index content %content_id', ['%content_id' => $this->getContentId($entity)]);
-      };
-    }
-  }
-
-  /**
-   * Updates the index on multiple entities at once.
-   *
-   * @param \Drupal\Core\Entity\EntityInterface[] $entities
-   */
-  public function updateContentIndexMultiple(array $entities) {
-    $batch = [];
-    $published = [];
-    $unpublished = [];
-    $deleted = [];
-    foreach ($entities as $entity) {
-      $content = $this->getContent($entity);
-      if (is_null($content)) {
-        $deleted[] = $this->getContentId($entity);
-      } else {
-        $batch[] = new ContentUpdate('UpdateAndAppend', $content);
-        if ($entity instanceof EntityPublishedInterface) {
-          if ($entity->isPublished()) {
-            $published[] = $this->getContentId($entity);
-          }
-          else {
-            $unpublished[] = $this->getContentId($entity);
-          }
-        }
-      }
-    }
-    if (!empty($published)) {
-      $batch[] = new ContentAdministrativeAction('EnableInRecommendations', [
-        new ContentIdFilter($published)
-      ]);
-    }
-    if (!empty($unpublished)) {
-      $batch[] = new ContentAdministrativeAction('DisableInRecommendations', [
-        new ContentIdFilter($unpublished)
-      ]);
-    }
-    if (!empty($deleted)) {
-      $batch[] = new ContentAdministrativeAction('PermanentlyDelete', [
-        new ContentIdFilter($deleted)
-      ]);
-    }
-    if (!empty($content)) {
-      if (!$this->API->BatchedTrackingRequest($batch)) {
-        \Drupal::logger('relewise')->error('Could not index content batch');
-      }
-    }
-  }
-
-  /**
-   * Deletes an entity from the index.
-   *
-   * @param \Drupal\Core\Entity\EntityInterface $entity
-   *
-   * @return bool
-   */
-  public function deleteContentIndex(EntityInterface $entity) {
-    $filters = [
-      new ContentIdFilter([$this->getContentId($entity)])
-    ];
-    return $this->API->TrackContentAdministrativeActionRequest(new ContentAdministrativeAction('PermanentlyDelete', $filters));
-  }
-
-  /**
-   * Enable an entity in the index.
-   *
-   * @param \Drupal\Core\Entity\EntityInterface $entity
-   *
-   * @return bool
-   */
-  public function enableContentIndex(EntityInterface $entity) {
-    $filters = [
-      new ContentIdFilter([$this->getContentId($entity)])
-    ];
-    return $this->API->TrackContentAdministrativeActionRequest(new ContentAdministrativeAction('EnableInRecommendations', $filters));
-  }
-
-  /**
-   * Disables an entity in the index.
-   *
-   * @param \Drupal\Core\Entity\EntityInterface $entity
-   *
-   * @return bool
-   */
-  public function disableContentIndex(EntityInterface $entity) {
-    $filters = [
-      new ContentIdFilter([$this->getContentId($entity)])
-    ];
-    return $this->API->TrackContentAdministrativeActionRequest(new ContentAdministrativeAction('DisableInRecommendations', $filters));
-  }
-
-  /**
-   * Deletes all content from index and queues reindexing. Warning: may lose tracking data.
-   *
-   * @return bool
-   */
-  public function resetIndex() {
-    $conditions = [
-      new EqualsCondition(new Value(time()), TRUE)
-    ];
-    $filters = [
-      new ContentDataFilter('LastUpdatedInRelewise', $conditions)
-    ];
-    if ($this->API->TrackContentAdministrativeActionRequest(new ContentAdministrativeAction('PermanentlyDelete', $filters))) {
-      $filters = [
-        new ContentIdFilter(['NonExistingId'], TRUE)
-      ];
-      return $this->API->TrackContentAdministrativeActionRequest(new ContentAdministrativeAction('PermanentlyDelete', $filters));
-    } else {
-      return FALSE;
-    }
-  }
-
-  public function reindex() {
-    $config = \Drupal::config('relewise.settings');
-    $bundles = $config->get('entity_bundles') ?? [];
-
-    foreach ($bundles as $entity_type => $bundle_ids) {
-      if (empty($bundle_ids)) {
-        continue;
-      }
-      $ids = $this->entityTypeManager->getStorage($entity_type)->getQuery()
-        ->accessCheck(FALSE)
-        ->condition($this->entityTypeManager->getDefinition($entity_type)->getKey('bundle'), $bundle_ids, 'IN')
-        ->condition('status', 1)
-        ->execute();
-      $chunks = array_chunk($ids, $config->get('index_batch_size') ?? 50);
-      $queue = \Drupal::queue('relewise_content_update');
-      foreach ($chunks as $chunk) {
-        $queue->createItem([
-          'entity_type' => $entity_type,
-          'entity_ids' => $chunk
-        ]);
-      }
-    }
+    return $this->getTracker()->trackUserUpdate($request);
   }
 
   /**
    * Performs a search for content in the index.
    *
    * @param string $term
-   * @param array $fields
-   * @param \Drupal\relewise\DataTypes\Search\Sorting\Content\ContentSorting|null $sorting
-   * @param int|null $count
+   * @param ContentDataFilter[] $filters
+   * @param int $count
    * @param int $page
-   * @param array $settings
+   * @param \Relewise\Models\ContentSorting|null $sorting
+   * @param \Relewise\Models\ContentSearchSettings|null $settings
+   * @param string $index
    *
-   * @return array|bool
+   * @return \Relewise\Models\ContentSearchResponse|null
    */
-  public function searchContent($term, array $fields = [], ?ContentSorting $sorting = NULL, $count = 10, $page = 0, array $settings = []) {
-    $facets = [];
-    foreach ($fields as $key => $value) {
-      if (is_array($value)) {
-        $facets[] = new ContentDataStringValueFacet($key, 'Data', array_values($value));
-      } else {
-        $facets[] = new ContentDataStringValueFacet($key, 'Data', [$value]);
-      }
+  public function searchContent(string $term, array $filters = [], int $count = 10, int $page = 0, ?ContentSorting $sorting = NULL, ?ContentSearchSettings $settings = NULL, string $index = '', string $displayLocation = ''): ?ContentSearchResponse {
+    $skip = 0;
+    if (!empty($count)) {
+      $skip = $page * $count;
     }
-    $skip = NULL;
+    if (empty($settings)) {
+      $settings = ContentSearchSettings::create();
+      $properties = SelectedContentPropertiesSettings::create();
+      $properties->setDisplayName(TRUE);
+      $properties->setCategoryPaths(FALSE);
+      $properties->setAssortments(FALSE);
+      $properties->setAllData(FALSE);
+      $properties->setViewedByUserInfo(FALSE);
+      $settings->setSelectedContentProperties(
+        $properties
+      );
+    }
+
+    $request = ContentSearchRequest::create(
+      $this->getCurrentLanguage(),
+      $this->getCurrentCurrency(),
+      $this->getCurrentUser(),
+      $this->getDisplayLocation($displayLocation),
+      empty($term) ? NULL : $term,
+      $skip,
+      $count
+    );
+    $request->setSettings($settings);
+    if (!empty($facets)) {
+      $facetQuery = ContentFacetQuery::create();
+      foreach ($facets as $facet) {
+        $facetQuery->addToItems($facet);
+      }
+      $request->setFacets($facetQuery);
+    }
+    if (!empty($filters)) {
+      $filterCollection = FilterCollection::create(...$filters);
+      $request->setFilters($filterCollection);
+    }
+    if (!empty($sorting)) {
+      $specification = ContentSortBySpecification::create()->setValue($sorting);
+      $request->setSorting($specification);
+    }
+    if (!empty($index)) {
+      $request->setIndexSelector(SearchIndexSelector::create($index));
+    }
+    return $this->getSearcher()->contentSearch($request);
+  }
+
+  /**
+   * Performs a search for product in the index.
+   *
+   * @param string|null $term
+   * @param ProductDataFilter[] $filters
+   * @param int $count
+   * @param int $page
+   * @param \Relewise\Models\ProductSorting|null $sorting
+   * @param \Relewise\Models\ProductSearchSettings|null $settings
+   * @param string $index
+   * @param \Relewise\Models\DataSelectionStrategy $selectionStrategy
+   *
+   * @return \Relewise\Models\ProductSearchResponse|null
+   */
+  public function searchProduct(?string $term, array $filters = [], int $count = 10, int $page = 0, ?ProductSorting $sorting = NULL, ?ProductSearchSettings $settings = NULL, string $index = '', string $displayLocation = ''): ?ProductSearchResponse {
+    $skip = 0;
     if (!is_null($count)) {
       $skip = $page * $count;
     }
-    $title = $this->titleResolver->getTitle($this->requestStack->getCurrentRequest(), $this->routeMatch->getRouteObject());
-    if (is_array($title)) {
-      /** @var \Drupal\Core\Render\RendererInterface $renderer */
-      $renderer = \Drupal::service('renderer');
-      $title = strip_tags($renderer->render($title));
+    if (empty($settings)) {
+      $settings = ProductSearchSettings::create();
+      $properties = SelectedProductPropertiesSettings::create();
+      $properties->setDisplayName(TRUE);
+      $properties->setCategoryPaths(FALSE);
+      $properties->setAssortments(FALSE);
+      $properties->setAllData(FALSE);
+      $properties->setViewedByUserInfo(FALSE);
+      $settings->setSelectedProductProperties(
+        $properties
+      );
     }
-    $settings += [
-      "SelectedContentProperties" => []
-    ];
-    $settings['SelectedContentProperties'] += [
-      "DisplayName" => TRUE,
-      "CategoryPaths" => FALSE,
-      "Assortments" => FALSE,
-      "AllData" => FALSE,
-      "ViewedByUserInfo" => FALSE
-    ];
 
-    return $this->API->ContentSearchRequest($term, $facets, $sorting, $count, $skip, \Drupal::languageManager()->getCurrentLanguage()->getId(), 'DKK', $this->getCurrentUserArray(), $title, $settings);
+    $request = ProductSearchRequest::create(
+      $this->getCurrentLanguage(),
+      $this->getCurrentCurrency(),
+      $this->getCurrentUser(),
+      $this->getDisplayLocation($displayLocation),
+      empty($term) ? NULL : $term,
+      $skip,
+      $count
+    );
+    $request->setSettings($settings);
+    if (!empty($facets)) {
+      $facetQuery = ProductFacetQuery::create();
+      foreach ($facets as $facet) {
+        $facetQuery->addToItems($facet);
+      }
+      $request->setFacets($facetQuery);
+    }
+    if (!empty($filters)) {
+      $filterCollection = FilterCollection::create(...$filters);
+      $request->setFilters($filterCollection);
+    }
+    if (!empty($sorting)) {
+      $specification = ProductSortBySpecification::create()->setValue($sorting);
+      $request->setSorting($specification);
+    }
+    if (!empty($index)) {
+      $request->setIndexSelector(SearchIndexSelector::create($index));
+    }
+    return $this->getSearcher()->productSearch($request);
   }
 
   /**
@@ -346,37 +273,54 @@ class Relewise {
    * @param $term
    * @param $count
    *
-   * @return array|bool
+   * @return \Relewise\Models\SearchTermPredictionResponse|null
    */
-  public function searchTermPrediction($term, $count = 10) {
-    $title = $this->titleResolver->getTitle($this->requestStack->getCurrentRequest(), $this->routeMatch->getRouteObject());
-    return $this->API->SearchTermPredictionRequest($term, $count, \Drupal::languageManager()->getCurrentLanguage()->getId(), 'DKK', $this->getCurrentUserArray(), $title);
+  public function searchTermPrediction($term, $count = 10, string $displayLocation = ''): ?SearchTermPredictionResponse {
+    $request = SearchTermPredictionRequest::create(
+      $this->getCurrentLanguage(),
+      $this->getCurrentCurrency(),
+      $this->getCurrentUser(),
+      $displayLocation,
+      $term,
+      $count
+    );
+    return $this->getSearcher()->searchTermPrediction($request);
   }
 
   /**
-   * Transforms a search result into entities.
+   * Transforms search results into entities.
    *
-   * @param mixed $result
+   * @param array $results
+   *
+   * @return array[]
+   */
+  public function getEntityIdsFromResults($results, $id_name): array {
+    $content = [];
+    foreach ($results as $item) {
+      $content_info = explode(':', $item->$id_name);
+      $content[$content_info[0]] = empty($content[$content_info[0]]) ? [] : $content[$content_info[0]];
+      $content[$content_info[0]][] = $content_info[1];
+    }
+    return $content;
+  }
+
+  /**
+   * Transforms search results into entities.
+   *
+   * @param array $results
    *
    * @return EntityInterface[]
    */
-  public function getSearchedContent($result) {
+  public function getEntitiesFromResults($results, $id_name): array {
     $entities = [];
-    if ($result !== FALSE && !empty($result['hits']) && $result['hits'] > 0) {
-      $content = [];
-      foreach ($result['results'] as $item) {
-        $content_info = explode(':', $item['contentId']);
-        $content[$content_info[0]] = empty($content[$content_info[0]]) ? [] : $content[$content_info[0]];
-        $content[$content_info[0]][] = $content_info[1];
-      }
-      foreach ($content as $entity_type => $entity_ids) {
-        try {
-          $entities += $this->entityTypeManager
-            ->getStorage($entity_type)
-            ->loadMultiple($entity_ids);
-        } catch (InvalidPluginDefinitionException|PluginNotFoundException $e) {
-          \Drupal::logger('relewise')->error('Error occurred while loading content from search result.');
-        }
+    $content = $this->getEntityIdsFromResults($results, $id_name);
+    foreach ($content as $entity_type => $entity_ids) {
+      try {
+        $entities += $this->entityTypeManager
+          ->getStorage($entity_type)
+          ->loadMultiple($entity_ids);
+      } catch (InvalidPluginDefinitionException|PluginNotFoundException $e) {
+        \Drupal::logger('relewise')->error('Error occurred while loading content from search result.');
       }
     }
     return $entities;
@@ -393,109 +337,184 @@ class Relewise {
     return $entity->getEntityTypeId() . ':' . $entity->id();
   }
 
-  protected function getContent(EntityInterface $entity) {
-    $content = new Content($this->getContentId($entity));
-    $langcode = $entity->language()->getId();
+  public function getContent(EntityInterface $entity): Content {
+    return Content::create($this->getContentId($entity));
+  }
+
+  /**
+   * Returns a product ID used for product indexing.
+   *
+   * @param \Drupal\Core\Entity\EntityInterface $entity
+   *
+   * @return string
+   */
+  public function getProductId(EntityInterface $entity) {
+    return $entity->getEntityTypeId() . ':' . $entity->id();
+  }
+
+  public function getProduct(EntityInterface $entity): Product {
+    return Product::create($this->getProductId($entity));
+  }
+
+  /**
+   * Returns a brand ID used for brand indexing.
+   *
+   * @param \Drupal\Core\Entity\EntityInterface $entity
+   *
+   * @return string
+   */
+  public function getBrandId(EntityInterface $entity) {
+    return $entity->getEntityTypeId() . ':' . $entity->id();
+  }
+
+  public function getBrand(EntityInterface $entity): Brand {
+    return Brand::create($this->getBrandId($entity));
+  }
+
+  public function currencyCodeFromEntity(EntityInterface $entity): string {
+    return 'DKK';
+  }
+
+  public function currencyFromEntity(EntityInterface $entity): Currency {
+    return Currency::create($this->currencyCodeFromEntity($entity));
+  }
+
+  public function languageFromEntity(EntityInterface $entity): Language {
+    return $this->languageFromLanguageCode($entity->language()->getId());
+  }
+
+  public function languageFromLanguageCode($langcode): Language {
     if ($langcode == 'und') {
       $langcode = \Drupal::languageManager()->getDefaultLanguage()->getId();
     }
-    $content->DisplayName()->addValue($entity->label(), $langcode);
-    $content->addData('type', $entity->getEntityTypeId());
-    $content->addData('bundle', $entity->bundle());
-    $content->addData('LastUpdatedInRelewise', time());
-    if ($entity instanceof EntityPublishedInterface) {
-      $content->addData('published', $entity->isPublished());
-    }
-    if ($entity instanceof EntityChangedInterface) {
-      $content->addData('changed', $entity->getChangedTime());
-    }
-    if ($entity instanceof EntityOwnerInterface) {
-      $content->addData('owner', $entity->getOwnerId());
-    }
-    if ($entity instanceof NodeInterface) {
-      /** @var NodeInterface $node */
-      $node = $entity;
-      $content->addData('created', $node->getCreatedTime());
-    }
-
-    /** @var \Drupal\path_alias\AliasManagerInterface $aliasManager */
-    $aliasManager = \Drupal::service('path_alias.manager');
-    $alias = $aliasManager->getAliasByPath($entity->toUrl()->toString());
-    $content->addPath('alias', $alias, $langcode);
-
-    $this->moduleHandler->alter('relewise_content', $content, $entity);
-
-    return $content;
+    return Language::create($langcode);
   }
 
-  protected function getCurrentUserArray() {
+  public function getDisplayLocation($overwrite = ''): string {
+    return $overwrite ?? '';
+  }
+
+  public function getCurrentLanguage(): Language {
+    return $this->languageFromLanguageCode(\Drupal::languageManager()->getCurrentLanguage()->getId());
+  }
+
+  public function getCurrentCurrency(): Currency {
+    return Currency::create('DKK');
+  }
+
+  public function getCurrentUser(): User {
+    if ($this->requestStack->getCurrentRequest()->cookies->get('cookiebot-consent--statistics') === '0') {
+      user_cookie_delete('relewise');
+    }
     $tempId = $this->requestStack->getCurrentRequest()->cookies->get('Drupal_visitor_relewise');
     $user = \Drupal::currentUser();
     if ($user->isAuthenticated()) {
-      return [
-        'AuthenticatedId' => $user->id(),
-        'TemporaryId' => $tempId,
-        'Email' => $user->getEmail()
-      ];
+      return UserFactory::byAuthenticatedId($user->id(), $tempId);
     } else {
       if (empty($tempId)) {
-        if ($this->requestStack->getCurrentRequest()->cookies->get('cookiebot-consent--statistics') === '0') {
-          $tempId = NULL;
-          user_cookie_delete('relewise');
-        } else {
+        if ($this->requestStack->getCurrentRequest()->cookies->get('cookiebot-consent--statistics') === '1') {
           $tempId = uniqid();
           user_cookie_save(['relewise' => $tempId]);
+        } else {
+          return UserFactory::anonymous();
         }
       }
-      return [
-        'TemporaryId' => $tempId,
-      ];
+      return UserFactory::byTemporaryId($tempId);
     }
   }
 
   /**
-   * Returns list of all entity types that is supported for content indexing.
+   * Get the id of the current route entity or NULL if it's not an entity route.
    *
-   * @return array
+   * @return string|null
    */
-  public function getSupportedEntityTypes() {
-    $types = [];
-    $entity_types = $this->entityTypeManager->getDefinitions();
-    foreach ($entity_types as $entity_type) {
-      if (!$this->canBeIndexed($entity_type)) {
-        continue;
-      }
-
-      $bundles = [];
-      foreach ($this->entityTypeBundleInfo->getBundleInfo($entity_type->id()) as $bundle_id => $bundle) {
-        $bundles[$bundle_id] = [
-          'id' => $bundle_id,
-          'label' => $bundle['label']
-        ];
-      }
-
-      $types[$entity_type->id()] = [
-        'id' => $entity_type->id(),
-        'label' => $entity_type->getLabel(),
-        'bundles' => $bundles,
-      ];
+  public function getCurrentIdOfRouteEntity(): ?string {
+    $entity = $this->getEntityFromRouteMatch($this->routeMatch);
+    if ($entity instanceof EntityInterface) {
+      return $this->getContentId($entity);
+    } else {
+      return NULL;
     }
-    $this->moduleHandler->alter('relewise_supported_entity_types', $types);
-
-    return $types;
   }
 
   /**
-   * Returns whether an entity type can be indexed.
+   * Returns an entity parameter from a route match object.
    *
-   * @param \Drupal\Core\Entity\EntityTypeInterface $entity_type
+   * @param \Drupal\Core\Routing\RouteMatchInterface $route_match
+   *   The route match.
    *
-   * @return bool
+   * @return mixed|null
+   *   The entity, or null if it's not an entity route.
    */
-  protected function canBeIndexed(EntityTypeInterface $entity_type): bool {
-    if (!$entity_type->hasViewBuilderClass() || !$entity_type->isCommonReferenceTarget() || !$entity_type->hasRouteProviders() || $entity_type->getBundleEntityType() == NULL) {
-      return false;
+  protected function getEntityFromRouteMatch(RouteMatchInterface $route_match) {
+    $route = $route_match->getRouteObject();
+    if (!$route) {
+      return NULL;
     }
-    return true;
+
+    $entity_type_id = $this->getEntityTypeFromRoute($route);
+    if ($entity_type_id) {
+      return $route_match->getParameter($entity_type_id);
+    }
+
+    return NULL;
+  }
+
+  /**
+   * Return the entity type id from a route object.
+   *
+   * @param \Symfony\Component\Routing\Route $route
+   *   The route object.
+   *
+   * @return string|null
+   *   The entity type id, null if it doesn't exist.
+   */
+  protected function getEntityTypeFromRoute(Route $route): ?string {
+    if (!empty($route->getOptions()['parameters'])) {
+      foreach ($route->getOptions()['parameters'] as $option) {
+        if (isset($option['type']) && strpos($option['type'], 'entity:') === 0) {
+          return substr($option['type'], strlen('entity:'));
+        }
+      }
+    }
+
+    return NULL;
+  }
+
+  public function getSearcher(): Searcher {
+    if (empty($this->searcher)) {
+      $this->searcher = new Searcher(
+        $this->datasetId,
+        $this->APIKey);
+      //$this->searcher->setHttpVersion(CURL_HTTP_VERSION_1_1);
+    }
+    return $this->searcher;
+  }
+
+  public function getSearchAdministrator(): SearchAdministrator {
+    if (empty($this->searchAdministrator)) {
+      $this->searchAdministrator = new SearchAdministrator(
+        $this->datasetId,
+        $this->APIKey);
+    }
+    return $this->searchAdministrator;
+  }
+
+  public function getTracker(): Tracker {
+    if (empty($this->tracker)) {
+      $this->tracker = new Tracker(
+        $this->datasetId,
+        $this->APIKey);
+    }
+    return $this->tracker;
+  }
+
+  public function getRecommender(): Recommender {
+    if (empty($this->recommender)) {
+      $this->recommender = new Recommender(
+        $this->datasetId,
+        $this->APIKey);
+    }
+    return $this->recommender;
   }
 }

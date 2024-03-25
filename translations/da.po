@@ -35,3 +35,63 @@ msgstr "Indekserings batch størrelse"
 
 msgid "How many content items to index per batch when resetting index."
 msgstr "Hvor meget indhold skal indekseres ad gangen ved reset af indekset."
+
+msgid "What Relewise index to use."
+msgstr "Hvilket Relewise indeks som skal bruges."
+
+msgid "Product"
+msgstr "Produkt"
+
+msgid "Brand"
+msgstr "Brand"
+
+msgid "Brand name"
+msgstr "Brand navn"
+
+msgid "Display name"
+msgstr "Display navn"
+
+msgid "Display name settings"
+msgstr "Display navn indstillinger"
+
+msgid "Display name provider"
+msgstr "Display navn udbyder"
+
+msgid "Category path"
+msgstr "Kategoristi"
+
+msgid "Category path settings"
+msgstr "Kategoristi indstillinger"
+
+msgid "Category path provider"
+msgstr "Kategoristi udbyder"
+
+msgid "Add entity indexer"
+msgstr "Tilføj entitetsindekser"
+
+msgid "Add Relewise index"
+msgstr "Tilføj Relewise indeks"
+
+msgid "A short name to help you identify this index in the index list."
+msgstr "Et kort navn til at hjælpe med at identificere indekset i indekslisten."
+
+msgid "Is default index"
+msgstr "Er standardindeks"
+
+msgid "Should this index be used if no specific index has been chosen?"
+msgstr "Bør dette indeks bruges hvis der ikke er valgt et specifikt indeks?"
+
+msgid "Is the index enabled for searching?"
+msgstr "Kan indekset bruges til søgning?"
+
+msgid "Track views"
+msgstr "Track visninger"
+
+msgid "Should Relewise track every time an instance of this entity is viewed?"
+msgstr "Skal Relewise track hver gang en udgave af denne entitet bliver vist?"
+
+msgid "Exclude settings"
+msgstr "Eksluderings indstillinger"
+
+msgid "Data fields"
+msgstr "Data felter"

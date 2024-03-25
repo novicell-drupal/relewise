@@ -13,7 +13,10 @@ class RelewiseOverviewResult implements OverviewResultInterface {
 
   protected OverviewFilter $filter;
 
-  protected $result = [];
+  /**
+   * @var \Relewise\Models\ContentSearchResponse|null
+   */
+  protected $result = NULL;
 
   protected array $entities = [];
 
@@ -24,16 +27,15 @@ class RelewiseOverviewResult implements OverviewResultInterface {
     $this->filter = $filter;
   }
 
-
   /**
    * @inheritDoc
    */
   public function getResult() {
     if (empty($this->result)) {
       $this->result = $this->engine->getResult($this->filter);
-      if ($this->result !== FALSE && !empty($this->result['hits']) && $this->result['hits'] > 0) {
-        $this->counts['results'] = $this->result['hits'];
-        $this->counts['shown'] = count($this->result['results']);
+      if ($this->result !== FALSE && !empty($this->result->hits) && $this->result->hits > 0) {
+        $this->counts['results'] = $this->result->hits;
+        $this->counts['shown'] = count($this->result->results);
       } else {
         $this->counts['results'] = 0;
         $this->counts['shown'] = 0;
@@ -98,6 +100,4 @@ class RelewiseOverviewResult implements OverviewResultInterface {
   public function getCacheableMetadata(): CacheableMetadata {
     return $this->engine->getCacheableMetadata($this->filter, (count($this->filter->getFacets()) > 0));
   }
-
-
 }

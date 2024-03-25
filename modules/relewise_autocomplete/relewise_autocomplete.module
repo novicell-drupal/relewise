@@ -1,0 +1,15 @@
+<?php
+
+use Drupal\Core\Entity\Display\EntityViewDisplayInterface;
+use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Site\Settings;
+use Drupal\user\UserInterface;
+
+/**
+ * Implements hook_locale_translation_projects_alter().
+ */
+function relewise_autocomplete_locale_translation_projects_alter(&$projects) {
+  $module_handler = \Drupal::service('module_handler');
+  $path = $module_handler->getModule('relewise_autocomplete')->getPath();
+  $projects['relewise_autocomplete']['info']['interface translation server pattern'] = $path . '/translations/%language.po';
+}

@@ -1,0 +1,58 @@
+# Danish translation of Relewise Autocomplete (all releases)
+# Copyright (c) 2022 Novicell
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Relewise Autocomplete (all releases)\n"
+"POT-Creation-Date: 2022-01-25 11:59+0000\n"
+"PO-Revision-Date: 2022-01-25 13:08+0100\n"
+"Language-Team: Danish\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n!=1);\n"
+"Last-Translator: \n"
+"Language: da\n"
+"X-Generator: Poedit 1.8.11\n"
+
+msgid "Relewise autocomplete"
+msgstr "Relewise autofuldfør"
+
+msgid "Adds autocomplete search functionality"
+msgstr "Tilføjer autofuldfør til søgefunktionaliteten"
+
+msgid "What Relewise index to use."
+msgstr "Hvilket Relewise indeks som skal bruges."
+
+msgid "Multi search"
+msgstr "Multisøgning"
+
+msgid "Recommendations"
+msgstr "Anbefalinger"
+
+msgid "All data"
+msgstr "Alt data"
+
+msgid "What types to include in a multi search."
+msgstr "Hvilke typer skal inkluderes i en multisøgning"
+
+msgid "How many results to display?"
+msgstr "Hvor mange resultater skal vises?"
+
+msgid "Include the ID in the search results."
+msgstr "Inkludér ID'et i søgeresultaterne."
+
+msgid "Include display names in the search results."
+msgstr "Inkludér display navne i søgeresultaterne."
+
+msgid "Include category paths in the search results."
+msgstr "Inkludér kategoristier i søgeresultaterne."
+
+msgid "Include recommendations in the search results."
+msgstr "Inkludér anbefalinger i søgeresultaterne."
+
+msgid "Include urls in the search results."
+msgstr "Inkludér url'er i søgeresultaterne."
+
+msgid "Include all data in the search results."
+msgstr "Inkludér alt data i søgeresultaterne."

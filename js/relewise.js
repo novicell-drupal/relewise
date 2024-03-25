@@ -7,10 +7,10 @@
 
 (function ($, Drupal, drupalSettings, storage) {
   Drupal.relewise = {
-    trackContentView: function trackContentView(contentID) {
+    trackEntityView: function trackEntityView(contentID) {
       const content = contentID.split(':');
       $.ajax({
-        url: Drupal.url('relewise/content_view/'.concat(content[0], '/', content[1])),
+        url: Drupal.url('relewise/entity_view/'.concat(content[0], '/', content[1])),
         type: 'POST',
         dataType: 'json',
         success: function success(timestamp) {

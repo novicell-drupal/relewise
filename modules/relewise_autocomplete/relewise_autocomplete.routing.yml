@@ -1,0 +1,35 @@
+relewise_autocomplete.settings:
+  path: '/admin/config/search/relewise/autocomplete'
+  defaults:
+    _form: '\Drupal\relewise_autocomplete\Form\SettingsForm'
+    _title: 'Relewise autocomplete'
+  requirements:
+    _permission: 'configure relewise'
+
+relewise_autocomplete.searchContent:
+  path: '/relewise/search_content/{term}'
+  defaults:
+    _controller: '\Drupal\relewise_autocomplete\Controller\AutocompleteController::searchContent'
+  requirements:
+    _access: 'TRUE'
+
+relewise_autocomplete.searchProduct:
+  path: '/relewise/search_product/{term}'
+  defaults:
+    _controller: '\Drupal\relewise_autocomplete\Controller\AutocompleteController::searchProduct'
+  requirements:
+    _access: 'TRUE'
+
+relewise_autocomplete.searchMulti:
+  path: '/relewise/search_multi/{term}'
+  defaults:
+    _controller: '\Drupal\relewise_autocomplete\Controller\AutocompleteController::searchMulti'
+  requirements:
+    _access: 'TRUE'
+
+relewise_autocomplete.searchTermPrediction:
+  path: '/relewise/term_prediction/{term}'
+  defaults:
+    _controller: '\Drupal\relewise_autocomplete\Controller\AutocompleteController::searchTermPrediction'
+  requirements:
+    _access: 'TRUE'

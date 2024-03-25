@@ -6,6 +6,7 @@ use Drupal\Core\Cache\Cache;
 use Drupal\Core\Cache\CacheableMetadata;
 use Drupal\Core\DependencyInjection\DependencySerializationTrait;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Form\FormStateInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Drupal\Core\PageCache\ResponsePolicy\KillSwitch;
 use Drupal\Core\Pager\PagerManagerInterface;
@@ -13,18 +14,26 @@ use Drupal\entity_overview\EngineBase;
 use Drupal\entity_overview\OverviewFilter;
 use Drupal\entity_overview\OverviewManager;
 use Drupal\entity_overview\OverviewResultInterface;
-use Drupal\relewise\DataTypes\Search\Sorting\Content\ContentAttributeSorting;
-use Drupal\relewise\DataTypes\Search\Sorting\Content\ContentDataSorting;
-use Drupal\relewise\DataTypes\Search\Sorting\Content\ContentPopularitySorting;
+use Drupal\relewise\Entity\EntityIndexer;
+use Drupal\relewise\Entity\RelewiseIndex;
 use Drupal\relewise\Relewise;
 use Drupal\relewise\RelewiseOverviewResult;
+use Relewise\Models\ContentAttributeSorting;
+use Relewise\Models\ContentAttributeSortingSortableAttribute;
+use Relewise\Models\ContentDataSorting;
+use Relewise\Models\ContentPopularitySorting;
+use Relewise\Models\ContentRelevanceSorting;
+use Relewise\Models\ContentResult;
+use Relewise\Models\ContentSearchResponse;
+use Relewise\Models\ContentSorting;
+use Relewise\Models\SortOrder;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
  * @Engine(
  *  id = "relewise",
- *  title = "Relewise",
+ *  title = "Relewise (Deprecated)",
  *  facets = {
  *    "owner",
  *    "count",
@@ -91,13 +100,21 @@ class RelewiseEngine extends EngineBase {
     return new RelewiseOverviewResult($this, $filter);
   }
 
-  protected function getSearchFields(OverviewFilter $filter) {
+  /**
+   * Fetch all the fields that needs to be filtered.
+   *
+   * @param \Drupal\entity_overview\OverviewFilter $filter
+   *
+   * @return array
+   */
+  protected function getSearchFields(OverviewFilter $filter): array {
     $fields = [];
     $entity_types = $filter->getOverview()->getEntityBundles();
-    $fields['type'] = array_keys($entity_types);
-    $fields['bundle'] = [];
+    $fields['type'] = [];
     foreach ($entity_types as $entity_type => $bundles) {
-      $fields['bundle'] = array_merge($fields['bundle'], $bundles);
+      foreach ($bundles as $bundle) {
+        $fields['type'][] = $entity_type . ':' . $bundle;
+      }
     }
     foreach ($filter->getFieldValues() as $key => $value) {
       if ($key !== 'text' && !empty($value)) {
@@ -107,20 +124,23 @@ class RelewiseEngine extends EngineBase {
     return $fields;
   }
 
-  protected function getSearchSorting(OverviewFilter $filter) {
+  protected function getSearchSorting(OverviewFilter $filter): ?ContentSorting {
     $sorting = NULL;
     switch ($filter->getSort()) {
       case 'newest':
-        $sorting = new ContentDataSorting($filter->getOverview()->getSortField());
+        $sorting = ContentDataSorting::create($filter->getOverview()->getSortField(), SortOrder::Descending);
         break;
       case 'oldest':
-        $sorting = new ContentDataSorting($filter->getOverview()->getSortField(), 'Ascending');
+        $sorting = ContentDataSorting::create($filter->getOverview()->getSortField(), SortOrder::Ascending);
         break;
       case 'alphabetical':
-        $sorting = new ContentAttributeSorting('DisplayName', 'Ascending');
+        $sorting = ContentAttributeSorting::create(ContentAttributeSortingSortableAttribute::DisplayName, SortOrder::Ascending);
         break;
       case 'popular':
-        $sorting = new ContentPopularitySorting();
+        $sorting = ContentPopularitySorting::create();
+        break;
+      case 'relevant':
+        $sorting = ContentRelevanceSorting::create();
         break;
     }
     return $sorting;
@@ -135,9 +155,9 @@ class RelewiseEngine extends EngineBase {
     $fields = $this->getSearchFields($filter);
     $sorting = $this->getSearchSorting($filter);
     $term = $this->getSearchTerm($filter);
-    $result = $this->relewise->searchContent($term, $fields, $sorting, $filter->getCount() ?? NULL, $filter->getPage());
-    if ($result !== FALSE && !empty($result['hits']) && $result['hits'] > 0) {
-      $this->setCount($filter, $result['hits']);
+    $result = $this->relewise->searchContent($term, $fields, $filter->getCount() ?? NULL, $filter->getPage(), $sorting);
+    if ($result !== FALSE && !empty($result->hits) && $result->hits > 0) {
+      $this->setCount($filter, $result->hits);
     }
 
     if ($filter->hasPagination()) {
@@ -151,12 +171,13 @@ class RelewiseEngine extends EngineBase {
     return $this->loadEntities($this->getResult($filter));
   }
 
-  public function loadEntities(array $result): array {
+  public function loadEntities(?ContentSearchResponse $result): array {
     $entities = [];
-    if ($result !== FALSE && !empty($result['hits']) && $result['hits'] > 0) {
+    if (!empty($result) && !empty($result->hits) && $result->hits > 0) {
       $content = [];
-      foreach ($result['results'] as $item) {
-        $content_info = explode(':', $item['contentId']);
+      /** @var ContentResult $item */
+      foreach ($result->results as $item) {
+        $content_info = explode(':', $item->contentId);
         $content[$content_info[0]] = empty($content[$content_info[0]]) ? [] : $content[$content_info[0]];
         $content[$content_info[0]][] = $content_info[1];
       }
@@ -184,6 +205,7 @@ class RelewiseEngine extends EngineBase {
               ->getQuery()
               ->condition($keys['bundle'], $bundles, 'IN')
               ->condition('status', 1)
+              ->accessCheck()
               ->count()
               ->execute();
             $tags += $entity_type->getListCacheTags();
@@ -230,10 +252,21 @@ class RelewiseEngine extends EngineBase {
     return $this->count[$hash] ?? NULL;
   }
 
-  public function getCacheableMetadata($filter, bool $has_facets): CacheableMetadata {
-    $this->killSwitch->trigger();
+  public function getCacheableMetadata(OverviewFilter $filter, bool $has_facets): CacheableMetadata {
     $cache = new CacheableMetadata();
-    return $cache->setCacheMaxAge(0);
+    $config = \Drupal::config('relewise.settings');
+    $max_age = $config->get('cache_default_max_age') ?? 0;
+    if ($max_age == 0) {
+      $this->killSwitch->trigger();
+    } else {
+      $tags = ['relewise', 'relewise_default'];
+      foreach ($filter->getOverview()->getEntityBundles() as $entity_type_id => $bundles) {
+        $tags += $this->entityTypeManager->getDefinition($entity_type_id)->getListCacheTags();
+      }
+      $cache->addCacheableDependency($filter->getOverview());
+      $cache->addCacheTags($tags);
+    }
+    return $cache->setCacheMaxAge($max_age);
   }
 
 }

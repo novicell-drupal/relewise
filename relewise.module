@@ -18,20 +18,20 @@ function relewise_locale_translation_projects_alter(&$projects) {
  * Implements hook_entity_view_alter() for viewed entities.
  */
 function relewise_entity_view_alter(array &$build, EntityInterface $entity, EntityViewDisplayInterface $display) {
-  // TODO: Add tracking to other entity types.
-  /** @var \Drupal\relewise\Relewise $relewise */
-  $relewise = \Drupal::service('relewise');
-  if ($relewise->isSelectedForIndexing($entity) && $entity->getEntityTypeId() == 'node') {
-    if ($entity->isNew() || isset($entity->in_preview)) {
-      return;
-    }
+  if ($entity->isNew() || isset($entity->in_preview)) {
+    return;
+  }
+
+  /** @var \Drupal\relewise\RelewiseTracker $relewiseTracker */
+  $relewiseTracker = \Drupal::service('relewise.tracker');
+  if ($relewiseTracker->isSelectedForTracking($entity)) {
     // Add tracking library and settings, so we can track the content being viewed
     if ($display->getOriginalMode() === 'full') {
       // When the window's "load" event is triggered, mark the node as read.
       // This still allows for Drupal behaviors (which are triggered on the
       // "DOMContentReady" event) to add "new" and "updated" indicators.
-      $build['#attached']['library'][] = 'relewise/content-view';
-      $build['#attached']['drupalSettings']['relewise']['contentViewed'][$relewise->getContentId($entity)] = TRUE;
+      $build['#attached']['library'][] = 'relewise/entity-view';
+      $build['#attached']['drupalSettings']['relewise']['entityViewed'][$relewiseTracker->getTrackingId($entity)] = TRUE;
     }
   }
 }
@@ -40,14 +40,15 @@ function relewise_entity_view_alter(array &$build, EntityInterface $entity, Enti
  * Implements hook_entity_insert() for new entities.
  */
 function relewise_entity_insert(EntityInterface $entity) {
-  /** @var \Drupal\relewise\Relewise $relewise */
-  $relewise = \Drupal::service('relewise');
-  if ($relewise->isSelectedForIndexing($entity)) {
-    $queue = \Drupal::queue('relewise_content_update');
-    $queue->createItem([
-      'entity_type' => $entity->getEntityTypeId(),
-      'entity_ids' => [$entity->id()],
-    ]);
+  /** @var \Drupal\relewise\RelewiseIndexer $relewise */
+  $relewise = \Drupal::service('relewise.indexer');
+  if ($entity->getEntityTypeId() == 'relewise_index') {
+    /** @var \Drupal\relewise\Entity\RelewiseIndex $relewiseIndex */
+    $relewiseIndex = $entity;
+    $relewise->updateRelewiseIndex($relewiseIndex);
+  } elseif ($relewise->isSelectedForIndexing($entity)) {
+    $relewise->addEntityToIndexQueue($entity);
+    \Drupal::service('cache_tags.invalidator')->invalidateTags(['relewise_' . $entity->getEntityTypeId() . '_' . $entity->bundle()]);
   }
 }
 
@@ -55,14 +56,16 @@ function relewise_entity_insert(EntityInterface $entity) {
  * Implements hook_entity_update() for updated entities.
  */
 function relewise_entity_update(EntityInterface $entity) {
-  /** @var \Drupal\relewise\Relewise $relewise */
-  $relewise = \Drupal::service('relewise');
-  if ($relewise->isSelectedForIndexing($entity)) {
-    $queue = \Drupal::queue('relewise_content_update');
-    $queue->createItem([
-      'entity_type' => $entity->getEntityTypeId(),
-      'entity_ids' => [$entity->id()],
-    ]);
+  /** @var \Drupal\relewise\RelewiseIndexer $relewise */
+  $relewise = \Drupal::service('relewise.indexer');
+  if ($entity->getEntityTypeId() == 'relewise_index') {
+    /** @var \Drupal\relewise\Entity\RelewiseIndex $relewiseIndex */
+    $relewiseIndex = $entity;
+    $relewise->updateRelewiseIndex($relewiseIndex);
+  } elseif ($relewise->isSelectedForIndexing($entity)) {
+    //$relewise->updateEntityIndexMultiple([$entity]);
+    $relewise->addEntityToIndexQueue($entity);
+    \Drupal::service('cache_tags.invalidator')->invalidateTags(['relewise_' . $entity->getEntityTypeId() . '_' . $entity->bundle()]);
   }
 }
 
@@ -70,11 +73,17 @@ function relewise_entity_update(EntityInterface $entity) {
  * Implements hook_entity_delete() for deleted entities.
  */
 function relewise_entity_delete(EntityInterface $entity) {
-    /** @var \Drupal\relewise\Relewise $relewise */
-    $relewise = \Drupal::service('relewise');
-    if ($relewise->isSelectedForIndexing($entity)) {
-      $relewise->deleteContentIndex($entity);
-    }
+  /** @var \Drupal\relewise\RelewiseIndexer $relewise */
+  $relewise = \Drupal::service('relewise.indexer');
+  if ($entity->getEntityTypeId() == 'relewise_index') {
+    /** @var \Drupal\relewise\Entity\RelewiseIndex $relewiseIndex */
+    $relewiseIndex = $entity;
+    $relewise->deleteRelewiseIndex($relewiseIndex);
+  } elseif ($relewise->isSelectedForIndexing($entity)) {
+    $relewise->deleteContentIndex($entity);
+    $relewise->deleteEntityFromIndexQueue($entity);
+    \Drupal::service('cache_tags.invalidator')->invalidateTags(['relewise_' . $entity->getEntityTypeId() . '_' . $entity->bundle()]);
+  }
 }
 
 /**
@@ -86,4 +95,13 @@ function relewise_user_login(UserInterface $account) {
     $relewise = \Drupal::service('relewise');
     $relewise->userUpdate($account);
   }
+}
+
+/**
+ * Implements hook_cron().
+ */
+function relewise_cron() {
+  /** @var \Drupal\relewise\RelewiseIndexer $relewise */
+  $relewise = \Drupal::service('relewise.indexer');
+  $relewise->processIndexQueue();
 }

@@ -1,0 +1,7 @@
+services:
+  relewise.autocomplete:
+    class: Drupal\relewise_autocomplete\RelewiseAutocomplete
+    arguments:
+      - '@relewise'
+      - '@config.factory'
+      - '@module_handler'

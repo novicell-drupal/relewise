@@ -1,0 +1,14 @@
+relewise.settings:
+  route_name: relewise.settings
+  base_route: relewise.settings
+  title: Settings
+
+relewise.entity_indexer.list:
+  route_name: entity.entity_indexer.collection
+  base_route: relewise.settings
+  title: Entities
+
+relewise.relewise_index.list:
+  route_name: entity.relewise_index.collection
+  base_route: relewise.settings
+  title: Indexes

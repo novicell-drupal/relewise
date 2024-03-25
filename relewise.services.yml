@@ -2,14 +2,48 @@ services:
   relewise:
     class: Drupal\relewise\Relewise
     arguments:
-      - '@relewise.api'
       - '@entity_type.manager'
       - '@entity_type.bundle.info'
       - '@module_handler'
-      - '@title_resolver'
-      - '@current_route_match'
       - '@request_stack'
+      - '@current_route_match'
 
-  relewise.api:
-    class: Drupal\relewise\RelewiseAPI
-    arguments: ['@http_client']
+  relewise.indexer:
+    class: Drupal\relewise\RelewiseIndexer
+    arguments:
+      - '@relewise'
+      - '@entity_type.manager'
+      - '@entity_type.bundle.info'
+      - '@module_handler'
+      - '@database'
+
+  relewise.tracker:
+    class: Drupal\relewise\RelewiseTracker
+    arguments:
+      - '@relewise'
+      - '@relewise.indexer'
+      - '@module_handler'
+
+  plugin.relewise.display_name:
+    class: Drupal\relewise\DisplayNameProviderManager
+    parent: default_plugin_manager
+
+  plugin.relewise.category_path:
+    class: Drupal\relewise\CategoryPathProviderManager
+    parent: default_plugin_manager
+
+  plugin.relewise.brand:
+    class: Drupal\relewise\BrandProviderManager
+    parent: default_plugin_manager
+
+  plugin.relewise.price:
+    class: Drupal\relewise\PriceProviderManager
+    parent: default_plugin_manager
+
+  plugin.relewise.data_field:
+    class: Drupal\relewise\DataFieldManager
+    arguments:
+      - '@container.namespaces'
+      - '@cache.discovery'
+      - '@module_handler'
+      - '@plugin.manager.field.field_type'

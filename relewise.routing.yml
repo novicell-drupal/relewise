@@ -1,28 +1,14 @@
 relewise.trackContentView:
-  path: '/relewise/content_view/{entity_type_id}/{entity_id}'
+  path: '/relewise/entity_view/{entity_type_id}/{entity_id}'
   defaults:
-    _controller: '\Drupal\relewise\Controller\RelewiseController::trackContentView'
+    _controller: '\Drupal\relewise\Controller\TrackerController::trackEntityView'
   requirements:
     _permission: 'access content'
-
-relewise.searchContent:
-  path: '/relewise/search_content/{term}'
-  defaults:
-    _controller: '\Drupal\relewise\Controller\RelewiseController::searchContent'
-  requirements:
-    _access: 'TRUE'
-
-relewise.searchTermPrediction:
-  path: '/relewise/term_prediction/{term}'
-  defaults:
-    _controller: '\Drupal\relewise\Controller\RelewiseController::searchTermPrediction'
-  requirements:
-    _access: 'TRUE'
 
 relewise.reindex:
   path: '/admin/config/search/relewise/reindex'
   defaults:
-    _controller: '\Drupal\relewise\Controller\RelewiseController::reindex'
+    _controller: '\Drupal\relewise\Controller\IndexerController::reindex'
     _title: 'Reindex'
   requirements:
     _permission: 'configure relewise'
@@ -30,7 +16,7 @@ relewise.reindex:
 relewise.purge:
   path: '/admin/config/search/relewise/purge'
   defaults:
-    _controller: '\Drupal\relewise\Controller\RelewiseController::purge'
+    _controller: '\Drupal\relewise\Controller\IndexerController::purge'
     _title: 'Purge'
   requirements:
     _permission: 'configure relewise'
@@ -40,5 +26,37 @@ relewise.settings:
   defaults:
     _form: '\Drupal\relewise\Form\RelewiseSettingsForm'
     _title: 'Relewise'
+  requirements:
+    _permission: 'configure relewise'
+
+entity.entity_indexer.add_page:
+  path: '/admin/config/search/relewise/entity_indexer/add'
+  defaults:
+    _controller: '\Drupal\relewise\Controller\ConfigEntityController::addContent'
+    _title: 'Add entity indexer'
+  requirements:
+    _permission: 'configure relewise'
+
+entity.entity_indexer.collection:
+  path: '/admin/config/search/relewise/entity_indexer'
+  defaults:
+    _entity_list: 'entity_indexer'
+    _title: 'Entity indexer'
+  requirements:
+    _permission: 'configure relewise'
+
+entity.entity_indexer.add_form:
+  path: '/admin/config/search/relewise/entity_indexer/add/{entity_type_id}/{bundle}'
+  defaults:
+    _entity_form: 'entity_indexer.add'
+    _title: 'Add entity indexer'
+  requirements:
+    _permission: 'configure relewise'
+
+entity.relewise_index.add_form:
+  path: '/admin/config/search/relewise/relewise_index/add'
+  defaults:
+    _entity_form: 'relewise_index.add'
+    _title: 'Add Relewise index'
   requirements:
     _permission: 'configure relewise'

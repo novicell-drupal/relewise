@@ -1,0 +1,11 @@
+relewise.entity_indexer.add:
+  route_name: 'entity.entity_indexer.add_page'
+  title: 'Add entity indexer'
+  appears_on:
+    - entity.entity_indexer.collection
+
+relewise.relewise_index.add:
+  route_name: 'entity.relewise_index.add_form'
+  title: 'Add Relewise index'
+  appears_on:
+    - entity.relewise_index.collection
