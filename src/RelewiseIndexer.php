@@ -801,7 +801,7 @@ class RelewiseIndexer {
   }
 
   protected function configToFieldIndexConfiguration(array $config): FieldIndexConfiguration {
-    if ($config['parser'] == 'HTML') {
+    if (isset($config['parser']) && $config['parser'] == 'HTML') {
       $parser = HtmlParser::create();
     } else {
       $parser = ClearTextParser::create();

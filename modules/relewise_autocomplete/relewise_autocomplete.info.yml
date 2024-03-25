@@ -6,6 +6,7 @@ version: '3.0'
 
 dependencies:
   - core:node
+  - relewise:relewise
 
 interface translation project: relewise
 interface translation server pattern: modules/relewise/translations/%language.po
