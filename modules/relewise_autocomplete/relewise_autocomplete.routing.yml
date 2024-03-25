@@ -26,10 +26,3 @@ relewise_autocomplete.searchMulti:
     _controller: '\Drupal\relewise_autocomplete\Controller\AutocompleteController::searchMulti'
   requirements:
     _access: 'TRUE'
-
-relewise_autocomplete.searchTermPrediction:
-  path: '/relewise/term_prediction/{term}'
-  defaults:
-    _controller: '\Drupal\relewise_autocomplete\Controller\AutocompleteController::searchTermPrediction'
-  requirements:
-    _access: 'TRUE'
