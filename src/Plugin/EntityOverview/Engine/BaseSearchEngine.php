@@ -131,17 +131,26 @@ abstract class BaseSearchEngine extends EngineBase {
   protected function getFilters(OverviewFilter $filter) {
     $filters = [];
     foreach ($this->getSearchFields($filter) as $key => $value) {
+      if ($key == 'owner') {
+        $value = intval($value);
+      }
+
       if (!empty($value)) {
         if (is_array($value)) {
           $filters[] = ContentDataFilter::create($key)
             ->setConditions(ValueConditionCollection::create(ContainsCondition::create(FALSE)
-                ->setValue(DataValueFactory::stringListFromArray($value))
-                ->setValueCollectionEvaluationMode(ContainsConditionCollectionArgumentEvaluationMode::Any)));
+              ->setValue(DataValueFactory::stringListFromArray($value))
+              ->setValueCollectionEvaluationMode(ContainsConditionCollectionArgumentEvaluationMode::Any)));
+        } elseif (is_string($value)) {
+          $filters[] = ContentDataFilter::create($key)
+            ->setConditions(ValueConditionCollection::create(ContainsCondition::create(FALSE)
+              ->setValue(DataValueFactory::string($value))
+              ->setValueCollectionEvaluationMode(ContainsConditionCollectionArgumentEvaluationMode::Any)));
         } else {
           $filters[] = ContentDataFilter::create($key)
             ->setConditions(ValueConditionCollection::create(ContainsCondition::create(FALSE)
-                ->setValue(DataValueFactory::string($value))
-                ->setValueCollectionEvaluationMode(ContainsConditionCollectionArgumentEvaluationMode::Any)));
+              ->setValue(DataValueFactory::float($value))
+              ->setValueCollectionEvaluationMode(ContainsConditionCollectionArgumentEvaluationMode::Any)));
         }
       }
     }
