@@ -3,6 +3,7 @@
 namespace Drupal\relewise\Form;
 
 use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\Core\Config\TypedConfigManagerInterface;
 use Drupal\Core\Datetime\DateFormatterInterface;
 use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
@@ -58,6 +59,7 @@ class RelewiseSettingsForm extends ConfigFormBase {
   public static function create(ContainerInterface $container) {
     return new static(
       $container->get('config.factory'),
+      $container->get('config.typed'),
       $container->get('relewise'),
       $container->get('relewise.indexer'),
       $container->get('entity_type.manager'),
@@ -70,8 +72,8 @@ class RelewiseSettingsForm extends ConfigFormBase {
   /**
    * {@inheritdoc}
    */
-  public function __construct(ConfigFactoryInterface $config_factory, Relewise $relewise, RelewiseIndexer $relewiseIndexer, EntityTypeManagerInterface $entityTypeManager, EntityTypeBundleInfoInterface $entityTypeBundleInfo, MessengerInterface $messenger, DateFormatterInterface $dateFormatter) {
-    parent::__construct($config_factory);
+  public function __construct(ConfigFactoryInterface $config_factory, TypedConfigManagerInterface $typed_config_manager, Relewise $relewise, RelewiseIndexer $relewiseIndexer, EntityTypeManagerInterface $entityTypeManager, EntityTypeBundleInfoInterface $entityTypeBundleInfo, MessengerInterface $messenger, DateFormatterInterface $dateFormatter) {
+    parent::__construct($config_factory, $typed_config_manager);
     $this->relewise = $relewise;
     $this->relewiseIndexer = $relewiseIndexer;
     $this->messenger = $messenger;
