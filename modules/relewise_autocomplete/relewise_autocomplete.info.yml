@@ -8,5 +8,5 @@ dependencies:
   - core:node
   - relewise:relewise
 
-interface translation project: relewise
-interface translation server pattern: modules/relewise/translations/%language.po
+interface translation project: relewise_autocomplete
+interface translation server pattern: modules/relewise/modules/relewise_autocomplete/translations/%language.po

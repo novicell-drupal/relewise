@@ -84,6 +84,8 @@ class EntityDefinitionUpdateTest extends KernelTestBase {
 
     for ($run = 0; $run < 2; $run++) {
       relewise_update_9002();
+      // The translation repair must also be safe when Locale is not enabled.
+      relewise_update_9003();
       foreach (['entity_indexer', 'relewise_index'] as $entity_type_id) {
         $this->assertNotNull($repository->getLastInstalledDefinition($entity_type_id));
         if (isset($definitions_before[$entity_type_id])) {
