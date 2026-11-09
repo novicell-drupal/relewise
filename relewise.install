@@ -39,3 +39,18 @@ function relewise_update_9001(&$sandbox) {
   $table_schema = relewise_schema();
   $schema->createTable('relewise_queue', $table_schema['relewise_queue']);
 }
+
+/**
+ * Register any missing entity indexer and Relewise index definitions.
+ */
+function relewise_update_9002() {
+  $entity_type_manager = \Drupal::entityTypeManager();
+  $entity_type_manager->clearCachedDefinitions();
+  $update_manager = \Drupal::entityDefinitionUpdateManager();
+
+  foreach (['entity_indexer', 'relewise_index'] as $entity_type_id) {
+    if (!$update_manager->getEntityType($entity_type_id)) {
+      $update_manager->installEntityType($entity_type_manager->getDefinition($entity_type_id));
+    }
+  }
+}
