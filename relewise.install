@@ -54,3 +54,17 @@ function relewise_update_9002() {
     }
   }
 }
+
+/**
+ * Discard incomplete translation project metadata for Relewise Autocomplete.
+ */
+function relewise_update_9003() {
+  if (\Drupal::moduleHandler()->moduleExists('locale')) {
+    // Drupal 11.4 introduced the repository service and requires a project type.
+    // The old autocomplete hook could cache a project without that metadata.
+    $repository = \Drupal::hasService(\Drupal\locale\LocaleProjectRepository::class)
+      ? \Drupal::service(\Drupal\locale\LocaleProjectRepository::class)
+      : \Drupal::service('locale.project');
+    $repository->deleteMultiple(['relewise_autocomplete']);
+  }
+}
